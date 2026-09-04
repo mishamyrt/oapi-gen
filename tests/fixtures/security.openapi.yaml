@@ -1,0 +1,123 @@
+openapi: 3.1.0
+info:
+  title: Upload API
+  version: 1.0.0
+security:
+  - oauth: [uploads:write]
+  - apiKey: []
+paths:
+  /uploads:
+    post:
+      operationId: createUpload
+      x-handler-group: Uploads
+      requestBody:
+        required: true
+        description: File and metadata
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, title]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File contents
+                title:
+                  type: string
+                  minLength: 1
+                public:
+                  type: boolean
+            encoding:
+              file:
+                contentType: application/octet-stream
+      responses:
+        "201":
+          description: Uploaded
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/RequestID"
+            X-Rate-Limit:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Upload"
+  /admin:
+    get:
+      operationId: getAdmin
+      x-handler-group: Uploads
+      security:
+        - oauth: [admin:read]
+          apiKey: []
+      responses:
+        "204":
+          description: Allowed
+  /optional-upload:
+    post:
+      operationId: optionalUpload
+      x-handler-group: Uploads
+      security: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/OptionalUpload"
+      responses:
+        "204":
+          description: Accepted
+  /http-auth:
+    get:
+      operationId: getHttpAuth
+      x-handler-group: Uploads
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Allowed
+components:
+  headers:
+    RequestID:
+      required: true
+      description: Request identifier
+      schema:
+        type: string
+        format: uuid
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    oauth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://example.com/oauth/token
+          scopes:
+            uploads:write: Upload files
+            admin:read: Read administration data
+    basicAuth:
+      type: http
+      scheme: basic
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    OptionalUpload:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+    Upload:
+      type: object
+      required: [title, size]
+      properties:
+        title:
+          type: string
+        size:
+          type: integer

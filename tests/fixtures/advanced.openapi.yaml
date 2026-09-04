@@ -1,0 +1,635 @@
+openapi: 3.0.0
+info:
+  title: Auth Service API
+  version: 1.0.0
+  description: |
+    API сервиса аутентификации и управления пользователями.
+
+servers:
+  - url: https://api.example.com
+    description: Production
+
+tags:
+  - name: Auth
+  - name: Admin
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Авторизация
+      description: Авторизует пользователя по email и паролю, выдает JWT и refresh token в cookie.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная авторизация
+          headers:
+            Set-Cookie:
+              description: JWT и refresh token установлены в cookie
+              schema:
+                type: array
+                items:
+                  type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '400':
+          description: Некорректный запрос
+        '401':
+          description: Неверный email или пароль
+        '403':
+          description: Пользователь заблокирован
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Рефреш токена
+      description: Берет refresh token из cookie, валидирует его и выдает новый JWT в cookie.
+      operationId: refreshToken
+      responses:
+        '200':
+          description: JWT успешно обновлен
+          headers:
+            Set-Cookie:
+              description: Новый JWT установлен в cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '401':
+          description: Невалидный или истекший refresh token
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Завершение сессии
+      description: Удаляет access и refresh токены из Cookie
+      operationId: logout
+      responses:
+        '200':
+          description: Сессия завершена
+          headers:
+            Set-Cookie:
+              description: JWT и refresh token удалены из cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/password/recover:
+    post:
+      tags: [Auth]
+      summary: Запрос сброса пароля
+      description: Отправляет на email ссылку для сброса пароля.
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Если пользователь существует, письмо отправлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/password/reset:
+    post:
+      tags: [Auth]
+      summary: Сброс пароля
+      description: Принимает новый пароль и token из ссылки, сбрасывает пароль если token валиден.
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+      responses:
+        '200':
+          description: Пароль успешно сброшен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Невалидный запрос
+        '401':
+          description: Невалидный или истекший token
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/password:
+    put:
+      tags: [Auth]
+      summary: Обновление пароля
+      description: |
+        Обновляет пароль пользователя, если JWT валиден.
+        В ответе устанавливает новые JWT и refresh token в cookie.
+      operationId: updatePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasswordRequest'
+      responses:
+        '200':
+          description: Пароль успешно обновлен
+          headers:
+            Set-Cookie:
+              description: Новые JWT и refresh token установлены в cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '400':
+          description: Некорректный запрос
+        '401':
+          description: JWT отсутствует или невалиден
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Информация о текущем пользователе
+      description: Полная информация о текущем пользователе с его доступными лицензиями
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: [ ]
+      responses:
+        '200':
+          description: Полная информация о пользователе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserItem'
+        '401':
+          description: Не авторизован
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /users:
+    post:
+      tags: [Admin]
+      summary: Добавить пользователя
+      description: |
+        Создает пользователя. Принимает email, имя, фамилию, отчество и роль.
+        Генерирует пароль, отправляет его на email, создает пользователя и возвращает uuid.
+      operationId: createUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Пользователь успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateUserResponse'
+        '400':
+          description: Некорректный запрос
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
+        '409':
+          description: Пользователь с таким email уже существует
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    get:
+      tags: [Admin]
+      summary: Список пользователей
+      description: Возвращает список пользователей с пагинацией.
+      operationId: listUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Номер страницы
+        - in: query
+          name: page_size
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Размер страницы
+      responses:
+        '200':
+          description: Информация о пользователе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /users/{user_id}:
+    get:
+      tags: [Admin]
+      summary: Получить информацию о пользователе
+      description: Отдает информацию о пользователе по его ID.
+      operationId: getUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '200':
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserItem'
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
+        '404':
+          description: Пользователь не найден
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Admin]
+      summary: Удалить пользователя
+      description: Удаляет пользователя из БД.
+      operationId: deleteUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '204':
+          description: Пользователь удален
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
+        '404':
+          description: Пользователь не найден
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    patch:
+      tags: [Admin]
+      summary: Обновить пользователя
+      description: Обновить данные пользователя. Можно обновить имя, фамилию, отчество, активировать/деактивировать, разрешить смену пароля и выбрать список лицензий.
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Пользователь обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserItem'
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
+        '404':
+          description: Пользователь не найден
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+components:
+  parameters:
+    UserIdPath:
+      in: path
+      name: user_id
+      required: true
+      description: UUID пользователя
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    ValidationError:
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPValidationError'
+          example:
+            detail:
+              - loc:
+                  - body
+                  - email
+                msg: field required
+                type: missing
+                input: null
+                ctx: {}
+
+  securitySchemes:
+    bearerAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: JWT токен аутентификации из cookie
+
+  schemas:
+    Role:
+      type: string
+      enum:
+        - admin
+        - geologist
+        - office_geologist
+        - management
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: StrongPassword123!
+
+    PasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    PasswordResetConfirmRequest:
+      type: object
+      required:
+        - password
+        - token
+      properties:
+        password:
+          type: string
+          format: password
+          example: NewStrongPassword123!
+        token:
+          type: string
+          example: reset-token-from-email-link
+
+    UpdatePasswordRequest:
+      type: object
+      required:
+        - old_password
+        - new_password
+      properties:
+        old_password:
+          type: string
+          format: password
+          example: OldPassword
+
+        new_password:
+          type: string
+          format: password
+          example: NewStrongPassword123!
+
+    AuthSuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: success
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: success
+
+    CreateUserRequest:
+      type: object
+      required:
+        - email
+        - last_name
+        - first_name
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          example: new.user@example.com
+        last_name:
+          type: string
+          example: Иванов
+        first_name:
+          type: string
+          example: Иван
+        patronymic:
+          type: string
+          example: Иванович
+        role:
+          $ref: '#/components/schemas/Role'
+
+    CreateUserResponse:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+
+    UserItem:
+      type: object
+      required:
+        - user_id
+        - email
+        - last_name
+        - first_name
+        - role
+        - is_active
+        - must_change_password
+        - available_licenses
+        - created_at
+        - updated_at
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        last_name:
+          type: string
+        first_name:
+          type: string
+        patronymic:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        is_active:
+          type: boolean
+          example: true
+        must_change_password:
+          type: boolean
+          example: false
+        available_licenses:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserLicenseItem'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserLicenseItem:
+      type: object
+      required:
+        - license_id
+        - license_number
+        - name
+      properties:
+        license_id:
+          type: integer
+        license_number:
+          type: string
+        name:
+          type: string
+
+    UserListResponse:
+      type: object
+      required:
+        - items
+        - page
+        - page_size
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserItem'
+        page:
+          type: integer
+          example: 1
+        page_size:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 145
+
+    ValidationErrorItem:
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      properties:
+        loc:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: integer
+          example:
+            - body
+            - email
+        msg:
+          type: string
+          example: field required
+        type:
+          type: string
+          example: missing
+        input:
+          nullable: true
+          example: null
+        ctx:
+          type: object
+          additionalProperties: true
+          example: {}
+
+    HTTPValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorItem'
+
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        last_name:
+          type: string
+        first_name:
+          type: string
+        patronymic:
+          type: string
+        is_active:
+          type: boolean
+        must_change_password:
+          type: boolean
+        available_licenses:
+          type: array
+          items:
+            type: integer
+      minProperties: 1

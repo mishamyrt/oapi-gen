@@ -1,0 +1,14 @@
+{
+  "files": [
+    "__init__.py",
+    "_cookies.py",
+    "_runtime.py",
+    "contracts.py",
+    "models.py",
+    "openapi.json",
+    "router.py"
+  ],
+  "generator": "oapi-gen",
+  "source_sha256": "bc992a4f0e652367ab7756437f7207d1c1db579e44540e68c06834396fc1ce98",
+  "version": 1
+}

@@ -1,0 +1,101 @@
+openapi: 3.1.0
+info:
+  title: Cats API
+  version: 1.0.0
+paths:
+  /cats:
+    get:
+      operationId: listCats
+      x-handler-group: Cats
+      tags: [Cats, Animals]
+      summary: List cats
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of cats
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Cat list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cats"
+        "404":
+          description: No cats found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+    post:
+      operationId: createCat
+      tags: [Cats]
+      summary: Create a cat
+      requestBody:
+        required: true
+        description: Cat to create
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatCreate"
+      responses:
+        "201":
+          description: Cat created
+  /cats/{catId}:
+    parameters:
+      - name: catId
+        in: path
+        required: true
+        description: Cat identifier
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: showCatById
+      tags: [Cats]
+      summary: Show a cat
+      responses:
+        "200":
+          description: Cat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cat"
+        "404":
+          description: Cat not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+components:
+  schemas:
+    Cat:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    CatCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+    HTTPError:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+    Cats:
+      type: array
+      items:
+        $ref: "#/components/schemas/Cat"
