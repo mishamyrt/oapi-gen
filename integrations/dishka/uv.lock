@@ -110,7 +110,7 @@ wheels = [
 
 [[package]]
 name = "datamodel-code-generator"
-version = "0.65.1"
+version = "0.76.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "argcomplete" },
@@ -122,9 +122,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/98/0e/5912b493a114591ebf66530fecda0f4a5e0e746ab7ea30f6da15de460e21/datamodel_code_generator-0.65.1.tar.gz", hash = "sha256:65471eaa32753d738f0e7ff8e0db3ac1fbc97ff64e393cd8df427eed77e86661", size = 1418449, upload-time = "2026-06-25T09:32:26.482Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/cd/97b5ce0bc7452199a06204e1252fe10ad63cc37c76c2e9f76146b766b708/datamodel_code_generator-0.76.2.tar.gz", hash = "sha256:c8c25e24b5b90c1c45fc40309fedd0a2f571425c7b6efae97efb317c03325c32", size = 2260230, upload-time = "2026-09-04T11:37:47.931Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c7/30/c911d29d3ce3e1d3e3a4fa7dbf39b9bdef8135094dba320edb4e2b568fb5/datamodel_code_generator-0.65.1-py3-none-any.whl", hash = "sha256:ca1dd498c54679841cd0541a09edd5f2ee2021a455f225c61a38a166c0db5d22", size = 407906, upload-time = "2026-06-25T09:32:24.906Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/7a/00b736585a6fac1e9c94275a07d8e470a3accdaab37b54d13fdc1c985bc0/datamodel_code_generator-0.76.2-py3-none-any.whl", hash = "sha256:8cc2bffa5a7e81a4b5a1cfce28530eaf9be465f3591bb7cb53030eb0c956f6d9", size = 661183, upload-time = "2026-09-04T11:37:45.73Z" },
 ]
 
 [[package]]
@@ -373,7 +373,7 @@ wheels = [
 
 [[package]]
 name = "oapi-gen"
-version = "0.1.0"
+version = "0.1.8"
 source = { directory = "../../" }
 dependencies = [
     { name = "black" },
@@ -387,7 +387,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "black", specifier = "==26.5.1" },
-    { name = "datamodel-code-generator", specifier = "==0.65.1" },
+    { name = "datamodel-code-generator", specifier = "==0.76.2" },
     { name = "isort", specifier = "==8.0.1" },
     { name = "msgspec", specifier = "==0.21.1" },
     { name = "pyyaml", specifier = "==6.0.3" },
@@ -406,7 +406,7 @@ dev = [
 
 [[package]]
 name = "oapi-gen-dishka"
-version = "0.1.0"
+version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "dishka" },

@@ -30,11 +30,8 @@ dev = [
   "uvicorn[standard]==0.52.4",
 ]
 
-[tool.setuptools]
-package-dir = {"" = "packages"}
-
 [tool.setuptools.packages.find]
-where = ["packages"]
+include = ["oapi_gen*"]
 
 [tool.setuptools.package-data]
 oapi_gen = ["THIRD_PARTY_NOTICES.md"]
@@ -51,7 +48,7 @@ target-version = "py312"
 select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
 
 [tool.basedpyright]
-include = ["packages", "tests"]
+include = ["oapi_gen", "tests"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 reportMissingTypeStubs = false
