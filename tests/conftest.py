@@ -13,6 +13,7 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+
 from oapi_gen import check_package, generate_package
 
 from .support import ApiGenerator, PackageImporter, SpecWriter

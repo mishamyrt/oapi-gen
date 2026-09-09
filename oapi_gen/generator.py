@@ -48,8 +48,12 @@ def render_package(
     sources["_runtime.py"] = header + "\n" + runtime.read_text(encoding="utf-8")
     if any(response.streaming for operation in spec.operations for response in operation.responses):
         streams = Path(__file__).parent / "render" / "streams.py"
-        sources["_streams.py"] = header + "\n" + streams.read_text(encoding="utf-8").replace(
-            "from .runtime import", "from ._runtime import"
+        sources["_streams.py"] = (
+            header
+            + "\n"
+            + streams.read_text(encoding="utf-8").replace(
+                "from .runtime import", "from ._runtime import"
+            )
         )
     if has_cookie_arrays(spec):
         cookies = Path(__file__).parent / "render" / "cookies.py"

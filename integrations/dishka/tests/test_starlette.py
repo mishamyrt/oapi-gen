@@ -8,10 +8,11 @@ import httpx
 import pytest
 from dishka import FromDishka, Provider, Scope, make_async_container, provide
 from dishka.integrations.starlette import StarletteProvider
-from oapi_gen import generate_package
 from oapi_gen_dishka import inject, setup_dishka
 from starlette.applications import Starlette
 from starlette.requests import Request
+
+from oapi_gen import generate_package
 
 
 @pytest.mark.parametrize("streaming", [False, True])

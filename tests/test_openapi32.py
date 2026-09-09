@@ -3,10 +3,11 @@ from __future__ import annotations
 import importlib
 
 import pytest
-from oapi_gen import GenerationError
-from oapi_gen.parser import OpenAPIParser
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
+
+from oapi_gen import GenerationError
+from oapi_gen.parser import OpenAPIParser
 
 from .support import make_client
 

@@ -3,8 +3,9 @@ from __future__ import annotations
 import importlib
 
 import pytest
-from oapi_gen import GenerationError
 from starlette.datastructures import UploadFile
+
+from oapi_gen import GenerationError
 
 from .support import (
     ApiGenerator,

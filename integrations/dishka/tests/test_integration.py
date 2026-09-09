@@ -17,13 +17,14 @@ from dishka import FromComponent, FromDishka, Provider, Scope, make_async_contai
 from dishka.integrations.starlette import StarletteProvider
 from dishka.integrations.starlette import inject as inject_starlette
 from dishka.integrations.starlette import setup_dishka as setup_starlette_dishka
-from oapi_gen import generate_package
 from oapi_gen_dishka import inject, setup_dishka
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
+
+from oapi_gen import generate_package
 
 
 @dataclass

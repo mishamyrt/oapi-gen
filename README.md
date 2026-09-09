@@ -172,8 +172,12 @@ return contracts.Login.Ok(
     set_cookie=[
         contracts.Cookie(name="session", value="abc", httponly=True, secure=True),
         contracts.Cookie(
-            name="refresh", value="xyz", path="/auth", max_age=604800,
-            httponly=True, secure=True,
+            name="refresh",
+            value="xyz",
+            path="/auth",
+            max_age=604800,
+            httponly=True,
+            secure=True,
         ),
     ],
 )

@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from oapi_gen import GenerationError, generate_package
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
+
+from oapi_gen import GenerationError, generate_package
 
 from .support import (
     ApiGenerator,

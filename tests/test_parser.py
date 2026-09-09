@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 import yaml
+
 from oapi_gen import GenerationError, generate_package
 from oapi_gen.parser import OpenAPIParser, load_document, parse_openapi
 

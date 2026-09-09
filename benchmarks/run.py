@@ -18,8 +18,9 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from oapi_gen import generate_package
 from spec import CASES, SPEC
+
+from oapi_gen import generate_package
 
 
 def process_stats(pid):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from oapi_gen import CheckFailedError, GenerationError, check_package, generate_package
 
 FIXTURE = Path(__file__).parent / "fixtures" / "cats.openapi.yaml"
