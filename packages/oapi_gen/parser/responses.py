@@ -187,7 +187,6 @@ def _parse_response_headers(
                 description=optional_string(
                     raw.get("description"), f"{header_context}.description"
                 ),
-                schema=dict(schema),
                 is_cookie_array=is_cookie_array,
             )
         )

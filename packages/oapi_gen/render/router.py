@@ -11,9 +11,7 @@ from .inspection import (
     has_cookie_arrays,
     imports_for_types,
     models_for_types,
-    multipart_class_name,
     operation_uses_security,
-    type_annotation,
     used_security_schemes,
 )
 from .security import render_authorization
@@ -53,7 +51,7 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
         w.line("_cookie_decoder = json.Decoder(list[_contracts_Cookie] | None)")
     for op in spec.operations:
         for index, param in enumerate(op.parameters):
-            annotation = type_annotation(param.type_ref)
+            annotation = param.type_ref.annotated
             w.line(f"_{op.python_name}_parameter_{index} = {annotation}")
             # Fail at import (and generation) for unsupported types, not on the first request.
             w.line(f"json.Decoder(_{op.python_name}_parameter_{index})")
@@ -64,11 +62,11 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
             if body.is_multipart:
                 for index, field in enumerate(body.multipart_fields):
                     if not field.is_file:
-                        annotation = type_annotation(field.type_ref)
+                        annotation = field.type_ref.annotated
                         w.line(f"_{op.python_name}_form_{index} = {annotation}")
                         w.line(f"json.Decoder(_{op.python_name}_form_{index})")
             else:
-                annotation = type_annotation(body.type_ref)
+                annotation = body.type_ref.annotated
                 w.line(f"_{op.python_name}_body_decoder = json.Decoder({annotation})")
         for response in op.responses:
             if response.event_fields:
@@ -77,8 +75,8 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
                 for field in response.event_fields:
                     w.line(
                         f"_streams_EventField({field.python_name!r}, {field.required!r}, "
-                        f"json.Decoder({type_annotation(field.type_ref)}), "
-                        f"json.Decoder({type_annotation(field.wire_type_ref)}), "
+                        f"json.Decoder({field.type_ref.annotated}), "
+                        f"json.Decoder({field.wire_type_ref.annotated}), "
                         f"{field.json_encoded!r}, {field.property_counts!r}),",
                         1,
                     )
@@ -89,12 +87,12 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
                     f"{response.property_counts!r}"
                 )
             if response.type_ref:
-                annotation = type_annotation(response.type_ref)
+                annotation = response.type_ref.annotated
                 w.line(
                     f"_{op.python_name}_{response.status_code}_decoder = json.Decoder({annotation})"
                 )
             for index, header in enumerate(response.headers):
-                annotation = type_annotation(header.type_ref)
+                annotation = header.type_ref.annotated
                 w.line(
                     f"_{op.python_name}_{response.status_code}_header_{index} = "
                     f"json.Decoder({annotation})"
@@ -403,4 +401,4 @@ def render_form(w: Writer, op: Operation) -> None:
     arguments = ", ".join(
         f"{field.python_name}=__oapi_field_{i}" for i, field in enumerate(body.multipart_fields)
     )
-    w.line(f"__oapi_body = {multipart_class_name(body)}({arguments})", indent)
+    w.line(f"__oapi_body = {body.type_ref.annotation}({arguments})", indent)

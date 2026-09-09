@@ -11,9 +11,7 @@ from .inspection import (
     has_multipart_files,
     imports_for_types,
     models_for_types,
-    multipart_class_name,
     operation_uses_security,
-    type_annotation,
     used_security_schemes,
 )
 from .writer import Writer, generated_header, render_imports, render_model_imports
@@ -93,13 +91,13 @@ def render_contracts(spec: ApiSpec) -> str:
             writer.line()
             writer.line()
             writer.line("@dataclass(frozen=True, slots=True, kw_only=True)")
-            writer.line(f"class {multipart_class_name(body)}:")
+            writer.line(f"class {body.type_ref.annotation}:")
             render_docstring(writer, body.description, body.multipart_fields)
             for field in body.multipart_fields:
                 default = "" if field.required else " = None"
                 field_type = field.type_ref if field.required else field.type_ref.optional()
                 writer.line(
-                    f"{field.python_name}: {type_annotation(field_type)}{default}",
+                    f"{field.python_name}: {field_type.annotated}{default}",
                     indent=1,
                 )
 
@@ -114,9 +112,9 @@ def render_contracts(spec: ApiSpec) -> str:
                 writer.line(f"class {response.event_class_name}:")
                 render_docstring(writer, "A server-sent event.", response.event_fields)
                 for field in response.event_fields:
-                    annotation = type_annotation(
+                    annotation = (
                         field.type_ref if field.required else field.type_ref.optional()
-                    )
+                    ).annotated
                     default = "" if field.required else " = None"
                     writer.line(f"{field.python_name}: {annotation}{default}", indent=1)
                 writer.line()
@@ -131,12 +129,12 @@ def render_contracts(spec: ApiSpec) -> str:
             if fields:
                 for parameter in fields:
                     writer.line(
-                        f"{parameter.python_name}: {type_annotation(parameter.type_ref)}", indent=1
+                        f"{parameter.python_name}: {parameter.type_ref.annotated}", indent=1
                     )
             if operation.request_body is not None:
                 body = operation.request_body
                 body_type = body.type_ref if body.required else body.type_ref.optional()
-                writer.line(f"{body.python_name}: {type_annotation(body_type)}", indent=1)
+                writer.line(f"{body.python_name}: {body_type.annotated}", indent=1)
             if operation_uses_security(operation):
                 writer.line("security_context: object | None", indent=1)
             if (
@@ -168,10 +166,10 @@ def render_contracts(spec: ApiSpec) -> str:
                             annotation = f"{operation.class_name}.{response.event_class_name}"
                         else:
                             assert response.type_ref is not None
-                            annotation = type_annotation(response.type_ref)
+                            annotation = response.type_ref.annotated
                         writer.line(f"body: AsyncIterable[{annotation}]", indent=1)
                     elif response.type_ref is not None:
-                        writer.line(f"body: {type_annotation(response.type_ref)}", indent=1)
+                        writer.line(f"body: {response.type_ref.annotated}", indent=1)
                     for header in response.headers:
                         if header.required:
                             writer.line(
@@ -231,7 +229,7 @@ def render_contracts(spec: ApiSpec) -> str:
 def response_header_annotation(header: ResponseHeader) -> str:
     if header.is_cookie_array:
         return "list[Cookie] | None" if header.type_ref.nullable else "list[Cookie]"
-    return type_annotation(header.type_ref)
+    return header.type_ref.annotated
 
 
 def render_docstring(
@@ -257,7 +255,7 @@ def render_contract_imports(writer: Writer, spec: ApiSpec) -> None:
     for operation in spec.operations:
         writer.require(".contracts", f"{operation.class_name} as _contracts_{operation.class_name}")
         if operation.request_body is not None and operation.request_body.is_multipart:
-            names.add(multipart_class_name(operation.request_body))
+            names.add(operation.request_body.type_ref.annotation)
     if has_cookie_arrays(spec):
         writer.require(".contracts", "Cookie as _contracts_Cookie")
     for name in names:

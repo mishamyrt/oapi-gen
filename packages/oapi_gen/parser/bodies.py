@@ -124,9 +124,7 @@ def _parse_multipart_fields(
             raise GenerationError(
                 f"{field_context}: custom multipart serialization is not supported yet"
             )
-        part_media_type = optional_string(
-            encoding.get("contentType"), f"{field_context}.encoding.contentType"
-        )
+        optional_string(encoding.get("contentType"), f"{field_context}.encoding.contentType")
 
         is_array = resolved_field.get("type") == "array"
         item_schema = (
@@ -164,7 +162,6 @@ def _parse_multipart_fields(
                 ),
                 is_file=is_file,
                 is_array=is_array,
-                media_type=part_media_type,
             )
         )
 

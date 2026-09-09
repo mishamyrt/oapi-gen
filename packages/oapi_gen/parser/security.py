@@ -43,7 +43,6 @@ def parse_security_schemes(
         description = optional_string(raw.get("description"), f"{context}.description")
         location: ParameterLocation | None = None
         parameter_name: str | None = None
-        bearer_format: str | None = None
         flows: dict[str, object] | None = None
         metadata_url = optional_string(raw.get("oauth2MetadataUrl"), f"{context}.oauth2MetadataUrl")
         if metadata_url is not None:
@@ -75,7 +74,7 @@ def parse_security_schemes(
                     f"{context}: unsupported HTTP security scheme {http_scheme!r}"
                 )
             scheme_type = cast(SecuritySchemeType, http_scheme)
-            bearer_format = optional_string(raw.get("bearerFormat"), f"{context}.bearerFormat")
+            optional_string(raw.get("bearerFormat"), f"{context}.bearerFormat")
         elif raw_type == "oauth2":
             scheme_type = "oauth2"
             flows = _parse_oauth_flows(raw.get("flows"), context)
@@ -98,7 +97,6 @@ def parse_security_schemes(
                 description=description,
                 location=location,
                 parameter_name=parameter_name,
-                bearer_format=bearer_format,
                 flows=flows,
                 oauth2_metadata_url=metadata_url,
                 deprecated=deprecated,

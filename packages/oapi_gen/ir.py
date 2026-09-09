@@ -101,7 +101,6 @@ class MultipartField:
     description: str | None
     is_file: bool
     is_array: bool
-    media_type: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +110,6 @@ class ResponseHeader:
     type_ref: TypeRef
     required: bool
     description: str | None
-    schema: dict[str, object]
     is_cookie_array: bool = False
 
 
@@ -153,7 +151,6 @@ class SecurityScheme:
     description: str | None
     location: ParameterLocation | None
     parameter_name: str | None
-    bearer_format: str | None
     flows: dict[str, object] | None
     oauth2_metadata_url: str | None = None
     deprecated: bool = False
@@ -180,7 +177,6 @@ class Operation:
     group_name: str
     group_class_name: str
     group_field_name: str
-    tags: tuple[str, ...]
     summary: str | None
     description: str | None
     deprecated: bool
@@ -205,15 +201,9 @@ class Operation:
             for header in response.headers:
                 yield header.type_ref
 
-    @property
-    def primary_response(self) -> Response:
-        successes = [response for response in self.responses if 200 <= response.status_code < 300]
-        return min(successes or list(self.responses), key=lambda response: response.status_code)
-
 
 @dataclass(frozen=True, slots=True)
 class HandlerGroup:
-    name: str
     class_name: str
     field_name: str
     operations: tuple[Operation, ...]
@@ -221,7 +211,6 @@ class HandlerGroup:
 
 @dataclass(frozen=True, slots=True)
 class ApiSpec:
-    openapi_version: str
     title: str
     api_version: str
     source_hash: str

@@ -105,7 +105,6 @@ def parse_operation(
         group_name=raw_group,
         group_class_name=group_class_name,
         group_field_name=group_field_name,
-        tags=tags,
         summary=optional_string(raw.get("summary"), f"{context}.summary"),
         description=optional_string(raw.get("description"), f"{context}.description"),
         deprecated=bool(raw.get("deprecated", False)),
@@ -178,6 +177,6 @@ def make_groups(operations: list[Operation]) -> tuple[HandlerGroup, ...]:
     if len(class_names) != len(set(class_names)) or len(field_names) != len(set(field_names)):
         raise GenerationError("handler group names collide after Python name normalization")
     return tuple(
-        HandlerGroup(name, class_name, field_name, tuple(grouped[(name, class_name, field_name)]))
+        HandlerGroup(class_name, field_name, tuple(grouped[(name, class_name, field_name)]))
         for name, class_name, field_name in sorted(grouped)
     )

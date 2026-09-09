@@ -124,7 +124,6 @@ class OpenAPIParser:
         operations = assign_operation_names(operations, security_schemes)
         groups = make_groups(operations)
         return ApiSpec(
-            openapi_version=openapi_version,
             title=title,
             api_version=api_version,
             source_hash=self._source_hash,

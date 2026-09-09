@@ -228,34 +228,16 @@ def prepare_component_schemas(document: Mapping[str, Any], resolver: Resolver) -
                         raw.pop(key, None)
                     raw["$ref"] = f"#/components/schemas/{name}"
 
-        for keyword in (
-            "additionalProperties",
-            "contains",
-            "contentSchema",
-            "else",
-            "if",
-            "items",
-            "not",
-            "propertyNames",
-            "then",
-            "unevaluatedItems",
-            "unevaluatedProperties",
-        ):
+        for keyword in ("additionalProperties", "contentSchema", "items"):
             child = raw.get(keyword)
             if isinstance(child, dict):
                 visit(child, f"{context}.{keyword}")
-        for keyword in (
-            "$defs",
-            "definitions",
-            "dependentSchemas",
-            "patternProperties",
-            "properties",
-        ):
+        for keyword in ("$defs", "definitions", "properties"):
             children = raw.get(keyword)
             if isinstance(children, dict):
                 for name, child in children.items():
                     visit(child, f"{context}.{keyword}.{name}")
-        for keyword in ("allOf", "anyOf", "oneOf", "prefixItems"):
+        for keyword in ("allOf", "anyOf", "oneOf"):
             children = raw.get(keyword)
             if isinstance(children, list):
                 for index, child in enumerate(children):

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -55,12 +54,5 @@ def render_model_imports(writer: Writer, names: set[str]) -> None:
 
 
 def render_imports(writer: Writer, imports: set[ImportRef]) -> None:
-    if not imports:
-        return
-    grouped: defaultdict[str, list[str]] = defaultdict(list)
     for module, name in imports:
-        grouped[module].append(name)
-    writer.line()
-    for module in sorted(grouped):
-        names = ", ".join(sorted(grouped[module]))
-        writer.line(f"from {module} import {names}")
+        writer.require(module, name)

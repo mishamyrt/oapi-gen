@@ -8,7 +8,6 @@ from ..ir import (
     ApiSpec,
     ImportRef,
     Operation,
-    RequestBody,
     SecurityScheme,
     TypeRef,
 )
@@ -25,10 +24,6 @@ def imports_for_types(types: list[TypeRef]) -> set[ImportRef]:
 
 def models_for_types(types: list[TypeRef]) -> set[str]:
     return {name for type_ref in types for name in type_ref.model_names}
-
-
-def type_annotation(type_ref: TypeRef) -> str:
-    return type_ref.annotated
 
 
 def used_security_schemes(spec: ApiSpec) -> list[SecurityScheme]:
@@ -57,10 +52,6 @@ def has_cookie_arrays(spec: ApiSpec) -> bool:
         for response in operation.responses
         for header in response.headers
     )
-
-
-def multipart_class_name(body: RequestBody) -> str:
-    return body.type_ref.annotation
 
 
 def operation_security_schemes(
