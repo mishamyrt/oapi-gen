@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from ..ir import ApiSpec, MultipartField, Parameter, RequestBody, ResponseHeader
+from ..ir import ApiSpec, EventField, MultipartField, Parameter, RequestBody, ResponseHeader
 from .inspection import (
     all_type_refs,
     has_cookie_arrays,
@@ -28,6 +28,8 @@ def render_contracts(spec: ApiSpec) -> str:
     imports = imports_for_types(type_refs)
     imports.add(("dataclasses", "dataclass"))
     imports.add(("typing", "Protocol"))
+    if any(response.streaming for operation in spec.operations for response in operation.responses):
+        imports.add(("collections.abc", "AsyncIterable"))
     render_imports(writer, imports)
     render_model_imports(writer, models_for_types(type_refs))
     if has_cookie_arrays(spec):
@@ -49,6 +51,13 @@ def render_contracts(spec: ApiSpec) -> str:
         writer.line()
         writer.line("@dataclass(frozen=True, slots=True)")
         writer.line(f"class {scheme.class_name}:")
+        if scheme.deprecated or scheme.oauth2_metadata_url:
+            details = [scheme.description] if scheme.description else []
+            if scheme.deprecated:
+                details.append("Deprecated security scheme.")
+            if scheme.oauth2_metadata_url:
+                details.append(f"OAuth2 metadata: {scheme.oauth2_metadata_url}")
+            writer.line(repr("\n\n".join(details)), indent=1)
         if scheme.scheme_type == "apiKey":
             writer.line("api_key: str", indent=1)
             writer.line("roles: tuple[str, ...]", indent=1)
@@ -98,6 +107,20 @@ def render_contracts(spec: ApiSpec) -> str:
         writer.line()
         writer.line(f"class {operation.class_name}:")
         with writer.indented():
+            for response in operation.responses:
+                if not response.event_fields:
+                    continue
+                writer.line("@dataclass(frozen=True, slots=True, kw_only=True)")
+                writer.line(f"class {response.event_class_name}:")
+                render_docstring(writer, "A server-sent event.", response.event_fields)
+                for field in response.event_fields:
+                    annotation = type_annotation(
+                        field.type_ref if field.required else field.type_ref.optional()
+                    )
+                    default = "" if field.required else " = None"
+                    writer.line(f"{field.python_name}: {annotation}{default}", indent=1)
+                writer.line()
+                writer.line()
             writer.line("@dataclass(frozen=True, slots=True, kw_only=True)")
             writer.line("class Request:")
             described_fields: list[Parameter | RequestBody] = [*operation.parameters]
@@ -133,11 +156,21 @@ def render_contracts(spec: ApiSpec) -> str:
                 else:
                     writer.line("@dataclass(frozen=True, slots=True)")
                     writer.line(f"class {response.class_name}:")
-                render_docstring(writer, response.description, response.headers)
-                if response.type_ref is None and not response.headers:
+                description = "\n\n".join(
+                    text for text in (response.summary, response.description) if text
+                )
+                render_docstring(writer, description, response.headers)
+                if response.type_ref is None and not response.streaming and not response.headers:
                     writer.line("pass", indent=1)
                 else:
-                    if response.type_ref is not None:
+                    if response.streaming:
+                        if response.event_fields:
+                            annotation = f"{operation.class_name}.{response.event_class_name}"
+                        else:
+                            assert response.type_ref is not None
+                            annotation = type_annotation(response.type_ref)
+                        writer.line(f"body: AsyncIterable[{annotation}]", indent=1)
+                    elif response.type_ref is not None:
                         writer.line(f"body: {type_annotation(response.type_ref)}", indent=1)
                     for header in response.headers:
                         if header.required:
@@ -204,7 +237,7 @@ def response_header_annotation(header: ResponseHeader) -> str:
 def render_docstring(
     writer: Writer,
     description: str | None,
-    fields: Iterable[Parameter | RequestBody | MultipartField | ResponseHeader],
+    fields: Iterable[Parameter | RequestBody | MultipartField | ResponseHeader | EventField],
 ) -> None:
     parts = [description] if description else []
     parts.extend(

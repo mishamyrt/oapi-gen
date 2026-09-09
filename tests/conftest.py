@@ -52,18 +52,21 @@ def generate_api(tmp_path: Path, import_generated: PackageImporter) -> ApiGenera
         *,
         validate_responses: bool = True,
         security_schemes: dict[str, Any] | None = None,
+        media_types: dict[str, Any] | None = None,
+        openapi_version: str = "3.1.0",
     ) -> ModuleType:
         name = f"generated_{uuid4().hex}"
         source = tmp_path / f"{name}.json"
         source.write_text(
             json.dumps(
                 {
-                    "openapi": "3.1.0",
+                    "openapi": openapi_version,
                     "info": {"title": "Contract boundaries", "version": "1"},
                     "paths": paths,
                     "components": {
                         "schemas": schemas or {},
                         "securitySchemes": security_schemes or {},
+                        "mediaTypes": media_types or {},
                     },
                 }
             )

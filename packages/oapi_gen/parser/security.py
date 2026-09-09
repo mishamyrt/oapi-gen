@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 from ..errors import GenerationError
 from ..ir import (
@@ -23,6 +24,7 @@ _OAUTH_FLOW_REQUIREMENTS = {
     "password": ("tokenUrl",),
     "clientCredentials": ("tokenUrl",),
     "authorizationCode": ("authorizationUrl", "tokenUrl"),
+    "deviceAuthorization": ("deviceAuthorizationUrl", "tokenUrl"),
 }
 
 
@@ -43,6 +45,21 @@ def parse_security_schemes(
         parameter_name: str | None = None
         bearer_format: str | None = None
         flows: dict[str, object] | None = None
+        metadata_url = optional_string(raw.get("oauth2MetadataUrl"), f"{context}.oauth2MetadataUrl")
+        if metadata_url is not None:
+            if raw_type != "oauth2":
+                raise GenerationError(f"{context}: oauth2MetadataUrl applies only to OAuth2")
+            try:
+                parsed_url = urlsplit(metadata_url)
+            except ValueError as error:
+                raise GenerationError(
+                    f"{context}.oauth2MetadataUrl must be an HTTPS URL"
+                ) from error
+            if parsed_url.scheme != "https" or not parsed_url.netloc:
+                raise GenerationError(f"{context}.oauth2MetadataUrl must be an HTTPS URL")
+        deprecated = raw.get("deprecated", False)
+        if not isinstance(deprecated, bool):
+            raise GenerationError(f"{context}.deprecated must be a boolean")
 
         if raw_type == "apiKey":
             parameter_name = required_string(raw, "name", context)
@@ -83,6 +100,8 @@ def parse_security_schemes(
                 parameter_name=parameter_name,
                 bearer_format=bearer_format,
                 flows=flows,
+                oauth2_metadata_url=metadata_url,
+                deprecated=deprecated,
             )
         )
 

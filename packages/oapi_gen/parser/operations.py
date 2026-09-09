@@ -32,6 +32,8 @@ def parse_operation(
     path_parameters: list[object],
     global_security: object,
     security_schemes: Mapping[str, SecurityScheme],
+    *,
+    openapi_version: str = "3.1.0",
 ) -> Operation:
     context = f"{method.upper()} {path}"
     operation_id = required_string(raw, "operationId", context)
@@ -88,7 +90,11 @@ def parse_operation(
         raise GenerationError(
             f"{context}: parameter name 'security_context' is reserved for secured operations"
         )
-    responses = parse_responses(resolver, schemas, raw.get("responses"), context)
+    responses = parse_responses(
+        resolver, schemas, raw.get("responses"), context, openapi_version=openapi_version
+    )
+    if method == "head" and any(response.streaming for response in responses):
+        raise GenerationError(f"{context}: HEAD responses cannot carry a stream")
 
     return Operation(
         method=method,
@@ -134,6 +140,8 @@ def assign_operation_names(
         "SecurityRejected",
         "Protocol",
     }
+    if any(response.streaming for operation in operations for response in operation.responses):
+        reserved.add("AsyncIterable")
     reserved.update(operation.group_class_name for operation in operations)
     reserved.update(scheme.class_name for scheme in security_schemes)
     reserved.update(

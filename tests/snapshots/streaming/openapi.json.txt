@@ -1,0 +1,173 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Streaming Cats",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/cats/events": {
+      "get": {
+        "operationId": "watchCats",
+        "tags": [
+          "Cats"
+        ],
+        "security": [
+          {
+            "device": [
+              "cats:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "summary": "Cat changes",
+            "content": {
+              "text/event-stream": {
+                "$ref": "#/components/mediaTypes/CatEvents"
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        }
+      }
+    },
+    "/cats/jsonl": {
+      "get": {
+        "operationId": "exportCats",
+        "tags": [
+          "Cats"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/jsonl": {
+                "$ref": "#/components/mediaTypes/CatItems"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cats/ndjson": {
+      "get": {
+        "operationId": "exportCatsNdjson",
+        "tags": [
+          "Cats"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-ndjson": {
+                "$ref": "#/components/mediaTypes/CatItems"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cats/sequence": {
+      "get": {
+        "operationId": "exportCatsSequence",
+        "tags": [
+          "Cats"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json-seq": {
+                "$ref": "#/components/mediaTypes/CatItems"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "mediaTypes": {
+      "CatEvents": {
+        "itemSchema": {
+          "$ref": "#/components/schemas/CatEvent"
+        }
+      },
+      "CatItems": {
+        "itemSchema": {
+          "$ref": "#/components/schemas/Cat"
+        }
+      }
+    },
+    "schemas": {
+      "Cat": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "CatEvent": {
+        "type": "object",
+        "required": [
+          "event",
+          "data"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "cat.updated"
+          },
+          "id": {
+            "type": "string"
+          },
+          "retry": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "data": {
+            "type": "string",
+            "contentMediaType": "application/json",
+            "contentSchema": {
+              "$ref": "#/components/schemas/Cat"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "device": {
+        "type": "oauth2",
+        "deprecated": true,
+        "oauth2MetadataUrl": "https://example.com/.well-known/oauth-authorization-server",
+        "flows": {
+          "deviceAuthorization": {
+            "deviceAuthorizationUrl": "https://example.com/oauth/device",
+            "tokenUrl": "https://example.com/oauth/token",
+            "scopes": {
+              "cats:read": "Read cats"
+            }
+          }
+        }
+      }
+    }
+  }
+}

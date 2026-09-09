@@ -35,7 +35,10 @@ def parse_request_body(
     media_type, media = next(iter(content.items()))
     if not (_JSON_MEDIA_TYPE.match(media_type) or media_type == "multipart/form-data"):
         raise GenerationError(f"{context}: unsupported request media type {media_type!r}")
-    media_object = object_value(media, f"{context}.requestBody.content.{media_type}")
+    media_object = resolver.resolve_object(media, f"{context}.requestBody.content.{media_type}")
+    for keyword in ("itemSchema", "itemEncoding", "prefixEncoding"):
+        if keyword in media_object:
+            raise GenerationError(f"{context}.requestBody: {keyword} is not supported yet")
     schema = object_value(media_object.get("schema"), f"{context}.requestBody.schema")
     required = bool(raw.get("required", False))
     multipart_fields: tuple[MultipartField, ...] = ()

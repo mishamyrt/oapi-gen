@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import httpx
+import pytest
 from dishka import FromDishka, Provider, Scope, make_async_container, provide
 from dishka.integrations.starlette import StarletteProvider
 from oapi_gen import generate_package
@@ -13,9 +14,10 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 
 
-def test_starlette_scopes_are_shared_isolated_and_closed(tmp_path: Path, monkeypatch):
+@pytest.mark.parametrize("streaming", [False, True])
+def test_starlette_scopes_are_shared_isolated_and_closed(tmp_path: Path, monkeypatch, streaming):
     specification = {
-        "openapi": "3.1.0",
+        "openapi": "3.2.0" if streaming else "3.1.0",
         "info": {"title": "Scope test", "version": "1"},
         "paths": {
             "/value": {
@@ -25,7 +27,11 @@ def test_starlette_scopes_are_shared_isolated_and_closed(tmp_path: Path, monkeyp
                     "responses": {
                         "200": {
                             "description": "value",
-                            "content": {"application/json": {"schema": {"type": "string"}}},
+                            "content": {
+                                "application/jsonl" if streaming else "application/json": {
+                                    "itemSchema" if streaming else "schema": {"type": "string"}
+                                }
+                            },
                         },
                         "503": {"description": "Unavailable"},
                     },
@@ -38,10 +44,11 @@ def test_starlette_scopes_are_shared_isolated_and_closed(tmp_path: Path, monkeyp
     }
     source = tmp_path / "spec.json"
     source.write_text(json.dumps(specification))
-    generate_package(source, tmp_path / "generated_starlette_dishka")
+    package_name = f"generated_starlette_dishka_{streaming}"
+    generate_package(source, tmp_path / package_name)
     monkeypatch.syspath_prepend(str(tmp_path))
-    generated = importlib.import_module("generated_starlette_dishka")
-    contracts = importlib.import_module("generated_starlette_dishka.contracts")
+    generated = importlib.import_module(package_name)
+    contracts = importlib.import_module(package_name + ".contracts")
     resources = []
 
     class Resource:
@@ -57,6 +64,7 @@ def test_starlette_scopes_are_shared_isolated_and_closed(tmp_path: Path, monkeyp
             try:
                 yield resource
             finally:
+                await asyncio.sleep(0)
                 resource.closed = True
 
     class Security:
@@ -77,6 +85,20 @@ def test_starlette_scopes_are_shared_isolated_and_closed(tmp_path: Path, monkeyp
                 raise ValueError("failed")
             if resource.name == "unavailable":
                 raise contracts.Test.ServiceUnavailable()
+            if streaming:
+
+                @inject
+                async def check_resource(current: FromDishka[Resource]):
+                    assert current is resource
+                    assert not current.closed
+
+                async def items():
+                    await asyncio.sleep(0)
+                    await check_resource()
+                    yield resource.name
+                    await check_resource()
+
+                return contracts.Test.Ok(body=items())
             return contracts.Test.Ok(body=resource.name)
 
     async def scenario():
@@ -87,14 +109,16 @@ def test_starlette_scopes_are_shared_isolated_and_closed(tmp_path: Path, monkeyp
         app = Starlette(routes=router.routes)
         setup_dishka(container, app)
         try:
+            transport = httpx.ASGITransport(app)
             async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app, raise_app_exceptions=False),
+                transport=transport,
                 base_url="http://test",
             ) as client:
                 responses = await asyncio.gather(
                     *[client.get("/value", headers={"X-Key": str(i)}) for i in range(10)]
                 )
                 assert [response.json() for response in responses] == [str(i) for i in range(10)]
+                transport.raise_app_exceptions = False
                 assert (await client.get("/value", headers={"X-Key": "fail"})).status_code == 500
                 assert (
                     await client.get("/value", headers={"X-Key": "unavailable"})

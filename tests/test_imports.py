@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from oapi_gen import generate_package
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
@@ -62,8 +63,9 @@ components:
     assert response.json() == {"value": "ok"}
 
 
+@pytest.mark.parametrize("streaming", [False, True])
 def test_contracts_import_without_starlette_and_router_loads_lazily(
-    tmp_path: Path, generate_api: ApiGenerator
+    tmp_path: Path, generate_api: ApiGenerator, streaming: bool
 ) -> None:
     generated = generate_api(
         {
@@ -71,6 +73,23 @@ def test_contracts_import_without_starlette_and_router_loads_lazily(
                 "get": {
                     "operationId": "test",
                     "responses": {
+                        **(
+                            {
+                                "200": {
+                                    "content": {
+                                        "text/event-stream": {
+                                            "itemSchema": {
+                                                "type": "object",
+                                                "required": ["data"],
+                                                "properties": {"data": {"type": "string"}},
+                                            }
+                                        }
+                                    }
+                                },
+                            }
+                            if streaming
+                            else {}
+                        ),
                         "204": {
                             "description": "Cookie",
                             "headers": {
@@ -78,12 +97,13 @@ def test_contracts_import_without_starlette_and_router_loads_lazily(
                                     "schema": {"type": "array", "items": {"type": "string"}}
                                 }
                             },
-                        }
+                        },
                     },
                 }
             }
         },
         {"Value": {"type": "string"}},
+        openapi_version="3.2.0" if streaming else "3.1.0",
     )
     script = """
 import importlib

@@ -116,14 +116,32 @@ class ResponseHeader:
 
 
 @dataclass(frozen=True, slots=True)
+class EventField:
+    python_name: str
+    type_ref: TypeRef
+    wire_type_ref: TypeRef
+    required: bool
+    description: str | None
+    json_encoded: bool = False
+    property_counts: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Response:
     status_code: int
     class_name: str
     type_ref: TypeRef | None
-    description: str
+    description: str | None
     media_type: str | None
     headers: tuple[ResponseHeader, ...]
     property_counts: dict[str, Any] | None = None
+    summary: str | None = None
+    streaming: bool = False
+    event_fields: tuple[EventField, ...] = ()
+
+    @property
+    def event_class_name(self) -> str:
+        return "Event" if self.status_code == 200 else f"{self.class_name}Event"
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +155,8 @@ class SecurityScheme:
     parameter_name: str | None
     bearer_format: str | None
     flows: dict[str, object] | None
+    oauth2_metadata_url: str | None = None
+    deprecated: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +199,9 @@ class Operation:
         for response in self.responses:
             if response.type_ref is not None:
                 yield response.type_ref
+            for field in response.event_fields:
+                yield field.type_ref
+                yield field.wire_type_ref
             for header in response.headers:
                 yield header.type_ref
 

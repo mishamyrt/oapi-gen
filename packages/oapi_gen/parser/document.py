@@ -69,9 +69,10 @@ class OpenAPIParser:
 
     def parse(self) -> ApiSpec:
         openapi_version = required_string(self._document, "openapi", "document")
-        if not openapi_version.startswith(("3.0.", "3.1.")):
+        if not openapi_version.startswith(("3.0.", "3.1.", "3.2.")):
             raise GenerationError(
-                f"unsupported OpenAPI version {openapi_version!r}; expected OpenAPI 3.0.x or 3.1.x"
+                f"unsupported OpenAPI version {openapi_version!r}; "
+                "expected OpenAPI 3.0.x, 3.1.x or 3.2.x"
             )
         if self._document.get("webhooks"):
             raise GenerationError("webhooks are not supported yet")
@@ -92,6 +93,9 @@ class OpenAPIParser:
             if not path.startswith("/"):
                 raise GenerationError(f"path {path!r} must start with '/'")
             path_item = self._resolver.resolve_object(paths[path], f"paths.{path}")
+            for keyword in ("query", "additionalOperations"):
+                if keyword in path_item:
+                    raise GenerationError(f"paths.{path}: {keyword} is not supported yet")
             path_parameters = array_value(
                 path_item.get("parameters", []), f"paths.{path}.parameters"
             )
@@ -112,6 +116,7 @@ class OpenAPIParser:
                         path_parameters,
                         global_security,
                         security_schemes_by_name,
+                        openapi_version=openapi_version,
                     )
                 )
 

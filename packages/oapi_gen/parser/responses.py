@@ -14,6 +14,7 @@ from ..naming import pascal_case, snake_case
 from .references import Resolver
 from .schemas import SchemaParser, resolve_schema
 from .serialization import _JSON_MEDIA_TYPE, validate_parameter_serialization
+from .streams import STREAM_MEDIA_TYPES, parse_event_fields
 from .values import object_value, optional_string, required_string
 
 
@@ -22,6 +23,8 @@ def parse_responses(
     schemas: SchemaParser,
     value: object,
     context: str,
+    *,
+    openapi_version: str = "3.1.0",
 ) -> tuple[Response, ...]:
     raw_responses = object_value(value, f"{context}.responses")
     if not raw_responses:
@@ -44,24 +47,58 @@ def parse_responses(
             f"{context}.responses.{status_text}.headers",
             is_error=status_code >= 400,
         )
-        description = required_string(raw, "description", f"{context}.responses.{status_text}")
+        response_context = f"{context}.responses.{status_text}"
+        description = (
+            optional_string(raw.get("description"), f"{response_context}.description")
+            if openapi_version.startswith("3.2.")
+            else required_string(raw, "description", response_context)
+        )
+        summary = optional_string(raw.get("summary"), f"{response_context}.summary")
         content = object_value(raw.get("content", {}), f"{context}.responses.{status_text}.content")
         type_ref: TypeRef | None = None
         media_type: str | None = None
         property_counts = None
+        streaming = False
+        event_fields = ()
         if content:
             if len(content) != 1:
                 raise GenerationError(
                     f"{context}: exactly one response media type is supported for {status_text}"
                 )
             media_type, media = next(iter(content.items()))
-            if not _JSON_MEDIA_TYPE.match(media_type):
+            streaming = media_type in STREAM_MEDIA_TYPES
+            if not (_JSON_MEDIA_TYPE.fullmatch(media_type) or streaming):
                 raise GenerationError(f"{context}: unsupported response media type {media_type!r}")
-            media_object = object_value(media, f"{context}.responses.{status_text}.{media_type}")
-            schema = object_value(
-                media_object.get("schema"), f"{context}.responses.{status_text}.schema"
-            )
-            type_ref = schemas.parse(schema, f"{context}.responses.{status_text}")
+            media_object = resolver.resolve_object(media, f"{response_context}.{media_type}")
+            for keyword in ("itemEncoding", "prefixEncoding"):
+                if keyword in media_object:
+                    raise GenerationError(f"{response_context}: {keyword} is not supported yet")
+            if streaming:
+                if not openapi_version.startswith("3.2."):
+                    raise GenerationError(
+                        f"{response_context}: itemSchema streams require OpenAPI 3.2"
+                    )
+                if status_code < 200 or status_code in {204, 205, 304}:
+                    raise GenerationError(f"{response_context}: this status cannot carry a stream")
+                if any(header.wire_name.lower() == "content-length" for header in headers):
+                    raise GenerationError(
+                        f"{response_context}: streams cannot declare Content-Length"
+                    )
+                if "schema" in media_object:
+                    raise GenerationError(
+                        f"{response_context}: streaming responses use itemSchema; "
+                        "whole-stream schema validation is not supported"
+                    )
+            elif "itemSchema" in media_object:
+                raise GenerationError(
+                    f"{response_context}: itemSchema requires a sequential media type"
+                )
+            schema_key = "itemSchema" if streaming else "schema"
+            schema = object_value(media_object.get(schema_key), f"{response_context}.{schema_key}")
+            if media_type == "text/event-stream":
+                event_fields = parse_event_fields(resolver, schemas, schema, response_context)
+            else:
+                type_ref = schemas.parse(schema, response_context)
             property_counts = schemas.property_counts(schema, f"{context}.responses.{status_text}")
 
         responses.append(
@@ -73,6 +110,9 @@ def parse_responses(
                 media_type=media_type,
                 headers=headers,
                 property_counts=property_counts,
+                summary=summary,
+                streaming=streaming,
+                event_fields=event_fields,
             )
         )
     return tuple(sorted(responses, key=lambda response: response.status_code))

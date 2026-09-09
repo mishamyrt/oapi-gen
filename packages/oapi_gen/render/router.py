@@ -71,6 +71,18 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
                 annotation = type_annotation(body.type_ref)
                 w.line(f"_{op.python_name}_body_decoder = json.Decoder({annotation})")
         for response in op.responses:
+            if response.event_fields:
+                w.require("._streams", "EventField as _streams_EventField")
+                w.line(f"_{op.python_name}_{response.status_code}_event_fields = (")
+                for field in response.event_fields:
+                    w.line(
+                        f"_streams_EventField({field.python_name!r}, {field.required!r}, "
+                        f"json.Decoder({type_annotation(field.type_ref)}), "
+                        f"json.Decoder({type_annotation(field.wire_type_ref)}), "
+                        f"{field.json_encoded!r}, {field.property_counts!r}),",
+                        1,
+                    )
+                w.line(")")
             if response.property_counts is not None:
                 w.line(
                     f"_{op.python_name}_{response.status_code}_properties = "
@@ -103,16 +115,28 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
         if op.security:
             render_authorization(w, op, by_name)
         if op.request_body and op.request_body.is_multipart:
-            w.line("try:", 2)
-            w.line(
-                "async with _runtime_multipart_body(__oapi_http, "
-                f"required={op.request_body.required!r}) as __oapi_form:",
-                3,
-            )
+            streaming = any(response.streaming for response in op.responses)
+            if streaming:
+                w.require("contextlib", "AsyncExitStack")
+                w.line("async with AsyncExitStack() as __oapi_resources:", 2)
+                w.line("try:", 3)
+                w.line(
+                    "__oapi_form = await __oapi_resources.enter_async_context("
+                    "_runtime_multipart_body(__oapi_http, "
+                    f"required={op.request_body.required!r}))",
+                    4,
+                )
+            else:
+                w.line("try:", 2)
+                w.line(
+                    "async with _runtime_multipart_body(__oapi_http, "
+                    f"required={op.request_body.required!r}) as __oapi_form:",
+                    3,
+                )
             with w.indented(), w.indented():
                 render_endpoint(w, op, validate_responses)
-            w.line("except _runtime_RequestError as __oapi_error:", 2)
-            w.line("return _runtime_error_response(__oapi_error)", 3)
+            w.line("except _runtime_RequestError as __oapi_error:", 3 if streaming else 2)
+            w.line("return _runtime_error_response(__oapi_error)", 4 if streaming else 3)
         else:
             render_endpoint(w, op, validate_responses)
     w.line("__oapi_routes = [", 1)
@@ -277,7 +301,38 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
                     indent,
                 )
             headers = ", headers=__oapi_headers"
-        if response.type_ref:
+        if response.streaming:
+            w.require("functools", "partial")
+            w.require("._streams", "StreamResponse as _streams_StreamResponse")
+            if response.event_fields:
+                w.require("._streams", "encode_sse_item as _streams_encode_sse_item")
+                encode = (
+                    "partial(_streams_encode_sse_item, "
+                    f"event_type=_contracts_{op.class_name}.{response.event_class_name}, "
+                    f"fields=_{op.python_name}_{response.status_code}_event_fields, "
+                    f"checked={checked!r}"
+                )
+            else:
+                w.require("._streams", "encode_json_item as _streams_encode_json_item")
+                encode = (
+                    "partial(_streams_encode_json_item, "
+                    f"decoder=_{op.python_name}_{response.status_code}_decoder, "
+                    f"media_type={response.media_type!r}, checked={checked!r}"
+                )
+            if response.property_counts is not None:
+                encode += f", property_counts=_{op.python_name}_{response.status_code}_properties"
+            resources = (
+                ", resources=__oapi_resources"
+                if op.request_body is not None and op.request_body.is_multipart
+                else ""
+            )
+            w.line(
+                "return _streams_StreamResponse(__oapi_result.body, "
+                f"encode={encode}), status_code={response.status_code}, "
+                f"media_type={response.media_type!r}{headers}{resources})",
+                3,
+            )
+        elif response.type_ref:
             if checked:
                 w.require("msgspec", "convert")
                 w.require("msgspec", "to_builtins")

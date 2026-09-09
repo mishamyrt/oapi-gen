@@ -20,6 +20,8 @@ class ApiGenerator(Protocol):
         *,
         validate_responses: bool = True,
         security_schemes: dict[str, Any] | None = None,
+        media_types: dict[str, Any] | None = None,
+        openapi_version: str = "3.1.0",
     ) -> ModuleType: ...
 
 

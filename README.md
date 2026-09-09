@@ -225,14 +225,18 @@ app = Starlette(routes=router.routes)
 
 Version 0.1 intentionally supports a strict subset:
 
-- OpenAPI 3.0.x and 3.1.x;
+- OpenAPI 3.0.x, 3.1.x and the supported subset of 3.2.x;
 - internal references to schemas, response headers, and security schemes in `components`;
 - scalar path, query, header, and cookie parameters with their default serialization;
 - arrays of scalars in query parameters (repeated values) and path/header parameters
   (comma-separated values, including repeated header lines);
 - API key (header, query, or cookie), HTTP basic/bearer, and OAuth2 security;
+- OAuth2 Device Authorization, `oauth2MetadataUrl`, and security scheme `deprecated`;
 - security requirement alternatives (OR), combined schemes (AND), and operation overrides;
-- one JSON or multipart request media type and one JSON response media type per status;
+- one JSON or multipart request media type and one response media type per status;
+- JSON responses and `itemSchema` response streams using SSE, JSON Lines, NDJSON or JSON Sequence;
+- internal `components.mediaTypes` references in request and response content;
+- response `summary` docstrings and optional response `description` in OpenAPI 3.2;
 - multipart object bodies with scalar form fields and binary file uploads;
 - typed response headers with default simple serialization, plus separate
   `Set-Cookie` headers for arrays of cookie strings;
@@ -240,7 +244,7 @@ Version 0.1 intentionally supports a strict subset:
 - grouping by `x-handler-group`, falling back to the first tag.
 
 External references, OpenID Connect/mTLS, callbacks, webhooks, custom parameter or
-multipart serialization, streaming, multipart responses, and wildcard/default
+multipart serialization, streaming requests, multipart responses, and wildcard/default
 response codes fail generation with an actionable error. They are not silently ignored.
 
 Object parameters, request cookie arrays, nested arrays, and composed array
@@ -287,6 +291,135 @@ The original OpenAPI document is emitted as `openapi.json` and served at
 `<prefix>/openapi.json`; route prefixes are applied when the router is created.
 Include this JSON file as package data when distributing the generated package.
 Pass `include_schema=False` to omit the schema route.
+
+### Streaming responses (OpenAPI 3.2)
+
+Declare `itemSchema` for each independently validated stream item. Generated response
+bodies accept `AsyncIterable[T]`; the adapter sends one item at a time and awaits the
+HTTP send before requesting another item.
+
+| Media type | Contract item | Wire format |
+| --- | --- | --- |
+| `text/event-stream` | Generated operation event dataclass | SSE fields and a blank line |
+| `application/jsonl` | Schema type or model | JSON followed by LF |
+| `application/x-ndjson` | Schema type or model | JSON followed by LF |
+| `application/json-seq` | Schema type or model | RS (`0x1E`), JSON, LF |
+
+The [complete streaming example](tests/fixtures/streaming.openapi.yaml) includes all
+four formats, reusable media types, a typed SSE payload, and Device Authorization.
+For example, a response can reuse a Media Type Object:
+
+```yaml
+# In an OpenAPI 3.2 document; Cat is an existing schema component.
+paths:
+  /cats/events:
+    get:
+      operationId: watchCats
+      tags: [Cats]
+      responses:
+        '200':
+          summary: Cat changes
+          content:
+            text/event-stream:
+              $ref: '#/components/mediaTypes/CatEvents'
+components:
+  mediaTypes:
+    CatEvents:
+      itemSchema:
+        $ref: '#/components/schemas/CatEvent'
+  schemas:
+    CatEvent:
+      type: object
+      required: [event, data]
+      properties:
+        event: {type: string, const: cat.updated}
+        id: {type: string}
+        data:
+          type: string
+          contentMediaType: application/json
+          contentSchema:
+            $ref: '#/components/schemas/Cat'
+```
+
+SSE `data` is a string on the wire. With a JSON `contentMediaType`, its Python
+contract uses the `contentSchema` type and the adapter JSON-encodes it. Without
+`contentSchema`, JSON data has type `Any`; without `contentMediaType`, it remains
+text. The original schema and its generated wire model keep `data: str`.
+
+```python
+from collections.abc import AsyncIterator
+from app.http.generated import models
+from app.http.generated.contracts import WatchCats
+
+
+class CatsController:
+    async def watch_cats(self, request: WatchCats.Request) -> WatchCats.Response:
+        async def events() -> AsyncIterator[WatchCats.Event]:
+            yield WatchCats.Event(
+                event="cat.updated",
+                id="1",
+                data=models.Cat(id=1, name="Mittens"),
+            )
+
+        return WatchCats.Ok(body=events())
+```
+
+The 200 SSE response uses `Operation.Event`; other statuses use names such as
+`Operation.CreatedEvent`. Events are frozen dataclasses. Only fields declared in
+the item schema appear in the contract, and optional fields default to `None`
+(omitted on the wire). A JSON Lines/NDJSON/JSON Sequence handler instead yields
+the item models or scalar values directly.
+
+SSE item schemas currently require a flat object with a required `data` string
+and may also declare `event`, `id` and `retry` properties. `event` and `id` are strings;
+`retry` is a non-negative integer in milliseconds. Event unions/composition,
+additional event fields and `contentEncoding` fail generation. Referenced schemas
+are supported; inline payload objects follow the existing rule requiring a named
+schema component. Streaming responses require `itemSchema`; whole-stream `schema`
+constraints, streaming request bodies, HEAD streams and bodyless status streams
+are rejected. Declare one media type per response status.
+
+Response validation runs before each item is sent, including nested constraints,
+SSE JSON payload constraints and constraints on the serialized `data` string.
+`--no-validate-responses` skips schema validation but still checks the response
+variant, SSE event class and mandatory SSE framing rules. Multiline text uses one
+`data:` line per line; CR/CRLF are normalized to LF before validation. Invalid
+newlines in `event`/`id`, NUL in `id`, and invalid `retry` values are rejected.
+
+SSE responses default to `Cache-Control: no-cache` and send a comment heartbeat
+every 15 seconds. `Content-Length` cannot be declared for a stream. Declare
+`Last-Event-ID` as an ordinary header parameter when the application supports
+resuming a subscription; storing events and replaying them is application logic.
+Configure reverse proxies to forward streaming chunks without buffering.
+
+Authorization and request validation finish before the handler runs. Raise declared
+HTTP errors before returning the streaming response. After headers are sent, an
+iterator or validation error terminates the stream and propagates; it cannot
+replace the HTTP status or emit an undeclared error event.
+
+The adapter cancels iteration on client disconnect and calls the source iterator's
+`aclose()` when available. Multipart uploads stay open until the stream finishes,
+and Dishka request dependencies remain available during iteration. Acquire
+subscription resources inside the iterator and release them in `finally` or an
+async context manager. Cleanup that awaits while handling cancellation should use
+AnyIO's `CancelScope(shield=True)`, as with other cancellable Starlette code.
+
+### OpenAPI 3.2 metadata and security
+
+Response `summary` and `description` are combined in generated response docstrings.
+Both may be omitted in 3.2; 3.0/3.1 still require `description`. Media Type Objects
+can be reused through internal `$ref` chains under `components.mediaTypes` for
+both requests and responses. Missing, cyclic and external references fail generation.
+
+OAuth2 `flows.deviceAuthorization` requires `deviceAuthorizationUrl`, `tokenUrl`
+and `scopes`. The resource-server contract still receives a bearer token and the
+operation's declared scopes through `SecurityHandler`; the generator does not
+implement the authorization server's device flow. `oauth2MetadataUrl` must be an
+HTTPS URL. It and `deprecated` are retained in the served schema and documented on
+the generated credential class. Deprecation does not disable authentication.
+
+OpenAPI 3.2 support remains selective. In particular, `query` and
+`additionalOperations` produce explicit errors rather than silently dropping routes.
 
 ### Response validation and maximum throughput
 
