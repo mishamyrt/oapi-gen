@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oapi-gen-dishka"
-version = "0.1.2"
+version = "0.1.8"
 description = "Request-scoped Dishka injection for oapi-gen handlers"
 readme = "README.md"
 requires-python = ">=3.12"

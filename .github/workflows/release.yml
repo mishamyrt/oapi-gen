@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+      - name: Check versions and build all packages
+        run: |
+          for project_file in pyproject.toml integrations/*/pyproject.toml; do
+            project_dir=$(dirname "$project_file")
+            package_version=$(uv version --project "$project_dir" --short)
+            if [[ "$GITHUB_REF_NAME" != "v$package_version" ]]; then
+              echo "::error file=$project_file::Version $package_version does not match tag $GITHUB_REF_NAME"
+              exit 1
+            fi
+            uv build "$project_dir" --no-sources --out-dir dist
+          done
+      - name: Check distribution metadata
+        run: uvx twine check --strict dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: distributions
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: distributions
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Allow retrying after a partially completed upload.
+          skip-existing: true
+
+  release:
+    name: Create GitHub release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: distributions
+          path: dist
+      - name: Create release with distributions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          release_flags=()
+          if [[ "$GITHUB_REF_NAME" =~ (a|b|rc|dev)[0-9]+ ]]; then
+            release_flags+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --verify-tag --generate-notes --title "$GITHUB_REF_NAME" \
+            "${release_flags[@]}"

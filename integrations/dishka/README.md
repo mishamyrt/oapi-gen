@@ -5,8 +5,15 @@ Generated code stays unchanged. The integration reuses Dishka's native Starlette
 request container, so operation handlers, security handlers, and ordinary Starlette
 endpoints share the same `Scope.REQUEST` instances.
 
-This directory is an independently buildable package. Install it into your
-application from a local checkout:
+Use the same version of `oapi-gen-dishka` as the `oapi-gen` generator that produced
+your application code. Both packages are published together; see
+[the release instructions](../../README.md#releases).
+
+```bash
+uv add oapi-gen-dishka
+```
+
+This directory is also independently buildable. To install from a local checkout:
 
 ```bash
 uv add /path/to/oapi-gen/integrations/dishka
