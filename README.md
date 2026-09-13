@@ -113,7 +113,7 @@ to `*Handler`.
 `API_INFO_TITLE` and `API_INFO_VERSION` contain the corresponding values from the
 OpenAPI `info` object.
 
-For Dishka, the separate [`oapi-gen-dishka`](integrations/dishka/README.md) package
+For Dishka, the separate [`oapi-gen-dishka`](packages/oapi-gen-dishka/README.md) package
 adds `@inject` and `FromDishka[T]` injection to handler methods using the native
 Starlette request scope.
 
@@ -309,7 +309,7 @@ HTTP send before requesting another item.
 | `application/x-ndjson` | Schema type or model | JSON followed by LF |
 | `application/json-seq` | Schema type or model | RS (`0x1E`), JSON, LF |
 
-The [complete streaming example](tests/fixtures/streaming.openapi.yaml) includes all
+The [complete streaming example](packages/oapi-gen/tests/fixtures/streaming.openapi.yaml) includes all
 four formats, reusable media types, a typed SSE payload, and Device Authorization.
 For example, a response can reuse a Media Type Object:
 
@@ -473,13 +473,21 @@ throughput, latency, memory, and the distinction between checked/trusted respons
 
 ## Development
 
+The repository is a uv workspace. Packages live in `packages/*` and share the
+root `uv.lock` and `.venv`. Run these commands from the repository root:
+
 ```bash
-uv sync
-uv run pytest
-uv run ruff check .
-uv run basedpyright
-uv build
+uv sync --all-packages
+make test
+make lint
+make typecheck
+uv build --all-packages
 ```
+
+The generator sources live in `packages/oapi-gen/src`; setuptools installs that
+directory as `oapi_gen`. The workspace uses strict editable installation for this
+mapping so type checkers can resolve the package. After adding or renaming source
+modules, refresh it with `uv sync --all-packages --reinstall-package oapi-gen`.
 
 The parser and renderer are organized by responsibility:
 
@@ -491,7 +499,7 @@ The parser and renderer are organized by responsibility:
 - `ir.py` defines the shared contract between parsing and rendering. Parser modules do
   not depend on the renderer; renderer modules consume the IR without parsing documents.
 - Tests are grouped by behavior. Shared fixtures create isolated generated packages;
-  `tests/snapshots` records the complete output for both example specifications.
+  `packages/oapi-gen/tests/snapshots` records the complete output for the example specifications.
 
 The existing `oapi_gen.parser` and `oapi_gen.render` entry points remain available.
 Snapshot tests compare generated files and the manifest byte for byte. Update the
@@ -500,3 +508,52 @@ to the generator version or example specifications.
 
 The operation parsing and naming behavior is partly adapted from the MIT-licensed
 `fastapi-code-generator`; its copyright notice is included in the package.
+
+## Releases
+
+The [release workflow](.github/workflows/release.yml) runs on a pushed `v<version>`
+tag. The workspace and every package in `packages/*` must have that version in
+their `pyproject.toml`. All packages are built and published together; use the
+same version of `oapi-gen-dishka` as the generator that produced your code.
+
+Configure a [PyPI Trusted Publisher](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
+for each project (`oapi-gen` and `oapi-gen-dishka`):
+
+| Field | Value |
+| --- | --- |
+| Owner | `mishamyrt` |
+| Repository | `oapi-gen` |
+| Workflow filename | `release.yml` |
+| Environment | `pypi` |
+
+For a new PyPI project, create a [pending publisher](https://pypi.org/manage/account/publishing/)
+with the same values. Create the GitHub environment `pypi` and allow tags matching
+`v*`. Publishing uses OIDC, without a PyPI token secret.
+
+Commit the code changes and set `VERSION` in the Makefile to the next release
+version. Then run:
+
+```bash
+make publish
+```
+
+The command updates the workspace and package versions, refreshes the shared
+lockfile and environment, updates only the generator version in snapshot headers,
+and creates a release commit and an annotated `v<version>` tag. It rejects an
+existing tag or uncommitted changes outside the Makefile. Versions must use
+canonical Python spelling, for example `0.2.0rc1`.
+
+Push the commit and tag to start the release workflow, for example for `0.1.9`:
+
+```bash
+git push origin HEAD v0.1.9
+```
+
+CI checks both packages before publishing their wheel and source distributions.
+The virtual workspace root is not published. After PyPI succeeds, the workflow
+creates a GitHub Release with generated notes and the distributions attached.
+Tags such as `v0.2.0rc1` or `v0.2.0.dev1` produce a GitHub prerelease.
+
+If an upload fails partway through, rerun the failed jobs in the same workflow
+run; already uploaded files are skipped. Publish subsequent changes under a new
+shared version.

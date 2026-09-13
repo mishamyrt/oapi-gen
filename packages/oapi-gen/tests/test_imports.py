@@ -6,10 +6,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from oapi_gen import generate_package
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
-
-from oapi_gen import generate_package
 
 from .support import (
     ApiGenerator,

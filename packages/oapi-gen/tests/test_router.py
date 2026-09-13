@@ -4,11 +4,10 @@ import importlib
 from pathlib import Path
 from uuid import UUID
 
+from oapi_gen import generate_package
 from starlette.applications import Starlette
 from starlette.routing import Router
 from starlette.testclient import TestClient
-
-from oapi_gen import generate_package
 
 from .support import (
     ApiGenerator,

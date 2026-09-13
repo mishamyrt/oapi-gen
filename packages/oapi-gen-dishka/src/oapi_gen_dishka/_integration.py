@@ -13,7 +13,9 @@ from dishka.integrations.starlette import ContainerMiddleware
 from starlette.applications import Starlette
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-_request_container: ContextVar[AsyncContainer] = ContextVar("oapi_gen_dishka_request_container")
+_request_container: ContextVar[AsyncContainer] = ContextVar(
+    "oapi_gen_dishka_request_container"
+)
 
 
 def _get_container(args: tuple[Any, ...], kwargs: dict[str, Any]) -> AsyncContainer:

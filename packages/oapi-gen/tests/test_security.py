@@ -6,12 +6,11 @@ from typing import get_type_hints
 from uuid import UUID
 
 import pytest
+from oapi_gen import GenerationError, generate_package
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.testclient import TestClient
-
-from oapi_gen import GenerationError, generate_package
 
 from .support import (
     ApiGenerator,

@@ -26,7 +26,10 @@ class Controller:
 
     async def list_items(self, request):
         return c.ListItems.Ok(
-            body=[m.Item(id=i, name=f"item {i}", quantity=i + 1, active=True) for i in range(100)]
+            body=[
+                m.Item(id=i, name=f"item {i}", quantity=i + 1, active=True)
+                for i in range(100)
+            ]
         )
 
 

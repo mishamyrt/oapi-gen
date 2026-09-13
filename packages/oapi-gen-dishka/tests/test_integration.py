@@ -13,18 +13,25 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from dishka import FromComponent, FromDishka, Provider, Scope, make_async_container, provide
+from dishka import (
+    FromComponent,
+    FromDishka,
+    Provider,
+    Scope,
+    make_async_container,
+    provide,
+)
 from dishka.integrations.starlette import StarletteProvider
 from dishka.integrations.starlette import inject as inject_starlette
 from dishka.integrations.starlette import setup_dishka as setup_starlette_dishka
-from oapi_gen_dishka import inject, setup_dishka
+from oapi_gen import generate_package
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from oapi_gen import generate_package
+from oapi_gen_dishka import inject, setup_dishka
 
 
 @dataclass
@@ -42,7 +49,9 @@ class ResourceProvider(Provider):
 
     @provide(scope=Scope.REQUEST)
     async def resource(self, request: Request) -> AsyncIterator[RequestResource]:
-        resource = RequestResource(name=request.headers.get("X-Request", "normal"), id=uuid4().hex)
+        resource = RequestResource(
+            name=request.headers.get("X-Request", "normal"), id=uuid4().hex
+        )
         self.resources.append(resource)
         try:
             yield resource
@@ -68,13 +77,17 @@ def generated(tmp_path_factory):
                     "responses": {
                         "200": {
                             "description": "Resource id",
-                            "content": {"application/json": {"schema": {"type": "string"}}},
+                            "content": {
+                                "application/json": {"schema": {"type": "string"}}
+                            },
                         },
                     },
                 },
             },
         },
-        "components": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}},
+        "components": {
+            "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}
+        },
     }
     source = root / "spec.json"
     source.write_text(json.dumps(spec))
@@ -144,7 +157,9 @@ def build_app(generated, started=None):
         finally:
             await container.close()
 
-    router = generated.create_router(generated.Handlers(items=Controller()), security=Security())
+    router = generated.create_router(
+        generated.Handlers(items=Controller()), security=Security()
+    )
     generated_endpoint = router.routes[0].endpoint
 
     @inject_starlette
@@ -160,7 +175,9 @@ def build_app(generated, started=None):
     return app, container, provider, Controller
 
 
-def test_generated_handlers_share_native_scope_with_security_and_dependencies(generated):
+def test_generated_handlers_share_native_scope_with_security_and_dependencies(
+    generated,
+):
     app, _, provider, controller = build_app(generated)
     with TestClient(app) as client:
         first = client.get("/items", headers={"Authorization": "Bearer accepted"})
@@ -174,7 +191,10 @@ def test_generated_handlers_share_native_scope_with_security_and_dependencies(ge
 
     signature = inspect.signature(controller().list_items)
     assert list(signature.parameters) == ["request"]
-    assert signature.parameters["request"].annotation is generated.contracts.ListItems.Request
+    assert (
+        signature.parameters["request"].annotation
+        is generated.contracts.ListItems.Request
+    )
     assert signature.return_annotation is generated.contracts.ListItems.Response
 
 
@@ -190,7 +210,10 @@ def test_parallel_http_requests_are_isolated(generated):
                     *(
                         client.get(
                             "/items",
-                            headers={"Authorization": "Bearer accepted", "X-Request": str(index)},
+                            headers={
+                                "Authorization": "Bearer accepted",
+                                "X-Request": str(index),
+                            },
                         )
                         for index in range(10)
                     )
@@ -225,10 +248,14 @@ def test_failures_finalize_dependencies_and_reset_context(generated):
                 assert provider.resources[-1].closed
                 with pytest.raises(RuntimeError, match="inside an HTTP request"):
                     await outside_probe()
-                denied = await client.get("/items", headers={"Authorization": "Bearer denied"})
+                denied = await client.get(
+                    "/items", headers={"Authorization": "Bearer denied"}
+                )
                 assert denied.status_code == 401
                 assert provider.resources[-1].closed
-                success = await client.get("/items", headers={"Authorization": "Bearer accepted"})
+                success = await client.get(
+                    "/items", headers={"Authorization": "Bearer accepted"}
+                )
                 assert success.status_code == 200
                 assert all(resource.closed for resource in provider.resources)
                 with pytest.raises(RuntimeError, match="inside an HTTP request"):
@@ -251,7 +278,10 @@ def test_cancellation_finalizes_request_resources(generated):
                 task = asyncio.create_task(
                     client.get(
                         "/items",
-                        headers={"Authorization": "Bearer accepted", "X-Request": "cancel"},
+                        headers={
+                            "Authorization": "Bearer accepted",
+                            "X-Request": "cancel",
+                        },
                     )
                 )
                 try:
@@ -396,7 +426,8 @@ def test_readme_example_runs_with_complete_generated_api(tmp_path, monkeypatch):
         .split("```", 1)[0]
     )
     generate_package(
-        repo_root / "tests/fixtures/cats.openapi.yaml", tmp_path / "app/http/generated"
+        repo_root / "packages/oapi-gen/tests/fixtures/cats.openapi.yaml",
+        tmp_path / "app/http/generated",
     )
     monkeypatch.syspath_prepend(str(tmp_path))
     try:

@@ -29,7 +29,10 @@ def operation(name, schema=None, *, body=None, parameters=None):
         "responses": {"204" if schema is None else "200": response},
     }
     if body is not None:
-        op["requestBody"] = {"required": True, "content": {"application/json": {"schema": body}}}
+        op["requestBody"] = {
+            "required": True,
+            "content": {"application/json": {"schema": body}},
+        }
     if parameters:
         op["parameters"] = parameters
     return op
@@ -53,7 +56,12 @@ SPEC = {
                     {
                         "name": "limit",
                         "in": "query",
-                        "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 10},
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 10,
+                        },
                     },
                     {"name": "active", "in": "query", "schema": {"type": "boolean"}},
                     {
@@ -87,8 +95,16 @@ SPEC = {
                 "type": "object",
                 "required": ["items", "metadata"],
                 "properties": {
-                    "items": {"type": "array", "minItems": 1, "maxItems": 1000, "items": ITEM_REF},
-                    "metadata": {"type": "object", "additionalProperties": {"type": "string"}},
+                    "items": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 1000,
+                        "items": ITEM_REF,
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                    },
                 },
             },
         }

@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 from msgspec import ValidationError, convert
-
 from oapi_gen import GenerationError, check_package, generate_package
 
 from .support import (

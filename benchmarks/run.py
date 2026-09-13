@@ -18,13 +18,14 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from spec import CASES, SPEC
-
 from oapi_gen import generate_package
+from spec import CASES, SPEC
 
 
 def process_stats(pid):
-    result = subprocess.check_output(["ps", "-o", "rss=,time=", "-p", str(pid)], text=True)
+    result = subprocess.check_output(
+        ["ps", "-o", "rss=,time=", "-p", str(pid)], text=True
+    )
     rss, cpu = result.split()
     minutes, seconds = cpu.split(":")
     return int(rss), int(minutes) * 60 + float(seconds)
@@ -61,7 +62,12 @@ def preflight(base):
                     assert decoded == body
                 else:
                     assert decoded == [
-                        {"id": i, "name": f"item {i}", "quantity": i + 1, "active": True}
+                        {
+                            "id": i,
+                            "name": f"item {i}",
+                            "quantity": i + 1,
+                            "active": True,
+                        }
                         for i in range(100)
                     ]
 
@@ -71,7 +77,9 @@ def main():
     parser.add_argument("--seconds", type=float, default=3)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--concurrency", type=int, default=32)
-    parser.add_argument("--output", type=Path, default=Path("benchmarks/results-starlette.json"))
+    parser.add_argument(
+        "--output", type=Path, default=Path("benchmarks/results-starlette.json")
+    )
     args = parser.parse_args()
     here = Path(__file__).resolve().parent
     result = {
@@ -177,7 +185,9 @@ def main():
                         if process.poll() is not None:
                             raise RuntimeError(log.read_text())
                         try:
-                            with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                            with socket.create_connection(
+                                ("127.0.0.1", port), timeout=0.1
+                            ):
                                 break
                         except OSError:
                             time.sleep(0.025)
@@ -207,7 +217,9 @@ def main():
                         )
                         _, before_cpu = process_stats(process.pid)
                         measured = subprocess.check_output(
-                            [*command, "-duration", f"{args.seconds}s"], env=load_env, text=True
+                            [*command, "-duration", f"{args.seconds}s"],
+                            env=load_env,
+                            text=True,
                         )
                         rss, after_cpu = process_stats(process.pid)
                         row = json.loads(measured)
@@ -239,14 +251,25 @@ def main():
             "starlette_checked",
             "starlette_trusted",
         ):
-            rows = [r for r in result["runs"] if r["case"] == name and r["variant"] == variant]
+            rows = [
+                r
+                for r in result["runs"]
+                if r["case"] == name and r["variant"] == variant
+            ]
             summary.append(
                 {
                     "case": name,
                     "variant": variant,
                     **{
                         key: statistics.median(r[key] for r in rows)
-                        for key in ("rps", "p50_ms", "p95_ms", "p99_ms", "rss_mib", "cpu_percent")
+                        for key in (
+                            "rps",
+                            "p50_ms",
+                            "p95_ms",
+                            "p99_ms",
+                            "rss_mib",
+                            "cpu_percent",
+                        )
                     },
                 }
             )

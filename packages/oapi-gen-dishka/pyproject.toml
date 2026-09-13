@@ -20,7 +20,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-oapi-gen = { path = "../.." }
+oapi-gen = { workspace = true }
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -31,6 +31,9 @@ oapi_gen_dishka = ["py.typed"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+extend = "../oapi-gen/pyproject.toml"
 
 [tool.basedpyright]
 include = ["src"]

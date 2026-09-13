@@ -27,15 +27,15 @@ jobs:
           python-version: "3.12"
       - name: Check versions and build all packages
         run: |
-          for project_file in pyproject.toml integrations/*/pyproject.toml; do
+          for project_file in pyproject.toml packages/*/pyproject.toml; do
             project_dir=$(dirname "$project_file")
             package_version=$(uv version --project "$project_dir" --short)
             if [[ "$GITHUB_REF_NAME" != "v$package_version" ]]; then
               echo "::error file=$project_file::Version $package_version does not match tag $GITHUB_REF_NAME"
               exit 1
             fi
-            uv build "$project_dir" --no-sources --out-dir dist
           done
+          uv build --all-packages --no-sources --out-dir dist
       - name: Check distribution metadata
         run: uvx twine check --strict dist/*
       - uses: actions/upload-artifact@v7

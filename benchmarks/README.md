@@ -63,8 +63,8 @@ workloads. It does not reproduce the removed FastAPI baseline. From the reposito
 root, with Go on PATH:
 
 ```bash
-uv sync
-uv run python benchmarks/run.py --seconds 3 --repeats 3 --concurrency 32 --output benchmarks/results-starlette.json
+uv sync --all-packages
+uv run --all-packages python benchmarks/run.py --seconds 3 --repeats 3 --concurrency 32 --output benchmarks/results-starlette.json
 ```
 
 The runner creates generated packages and the compiled load client in a temporary directory and removes them on exit. Servers listen only on 127.0.0.1 and are stopped in a finally block. No server packages or generated fixtures need to be committed to rerun the experiment.

@@ -9,7 +9,6 @@ from uuid import UUID, uuid4
 
 import msgspec
 import pytest
-
 from oapi_gen import GenerationError, generate_package
 
 from .support import json_response, make_client, request_body

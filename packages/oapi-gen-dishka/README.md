@@ -16,7 +16,7 @@ uv add oapi-gen-dishka
 This directory is also independently buildable. To install from a local checkout:
 
 ```bash
-uv add /path/to/oapi-gen/integrations/dishka
+uv add /path/to/oapi-gen/packages/oapi-gen-dishka
 ```
 
 ## Usage
@@ -25,7 +25,7 @@ The example uses the repository's complete Cats specification. Generate it into
 your application's package:
 
 ```bash
-oapi-gen generate tests/fixtures/cats.openapi.yaml --output app/http/generated
+oapi-gen generate packages/oapi-gen/tests/fixtures/cats.openapi.yaml --output app/http/generated
 ```
 
 ```python
@@ -135,12 +135,13 @@ decorators resolve from the same container after the single setup call above.
 ## Development
 
 ```bash
-uv sync --project integrations/dishka
-uv run --project integrations/dishka pytest integrations/dishka/tests
-uv run --project integrations/dishka ruff check integrations/dishka
-uv run --project integrations/dishka basedpyright --project integrations/dishka
-uv build integrations/dishka --out-dir integrations/dishka/dist
+uv sync --all-packages
+uv run --all-packages --directory packages/oapi-gen-dishka pytest
+uv run --all-packages --directory packages/oapi-gen-dishka ruff check .
+uv run --all-packages --directory packages/oapi-gen-dishka basedpyright
+uv build --package oapi-gen-dishka --out-dir dist
 ```
 
-The local development dependency on `oapi-gen` is used only for integration tests;
+Run these commands from the repository root; the workspace uses one root lockfile.
+The workspace dependency on `oapi-gen` is used only for integration tests;
 the published wheel does not depend on the generator at runtime.

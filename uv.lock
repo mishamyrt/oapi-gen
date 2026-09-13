@@ -6,6 +6,13 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 
+[manifest]
+members = [
+    "oapi-gen",
+    "oapi-gen-dishka",
+    "oapi-gen-workspace",
+]
+
 [[package]]
 name = "annotated-types"
 version = "0.8.0"
@@ -125,6 +132,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c7/cd/97b5ce0bc7452199a06204e1252fe10ad63cc37c76c2e9f76146b766b708/datamodel_code_generator-0.76.2.tar.gz", hash = "sha256:c8c25e24b5b90c1c45fc40309fedd0a2f571425c7b6efae97efb317c03325c32", size = 2260230, upload-time = "2026-09-04T11:37:47.931Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/7a/00b736585a6fac1e9c94275a07d8e470a3accdaab37b54d13fdc1c985bc0/datamodel_code_generator-0.76.2-py3-none-any.whl", hash = "sha256:8cc2bffa5a7e81a4b5a1cfce28530eaf9be465f3591bb7cb53030eb0c956f6d9", size = 661183, upload-time = "2026-09-04T11:37:45.73Z" },
+]
+
+[[package]]
+name = "dishka"
+version = "1.10.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/97/da/b75b5fe665d16725e1d46e291c8dd4b0ed1731c7964f41087fda92f03d40/dishka-1.10.1.tar.gz", hash = "sha256:51fb624b9acc948b90f57128460061d1f3a1780121fe1c7d14c565e8bbff2083", size = 282008, upload-time = "2026-04-25T12:07:57.587Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2c/08/dd3259a319ba45c48d975caf237c830c7873a203288cb4ab186cc5bef585/dishka-1.10.1-py3-none-any.whl", hash = "sha256:84f40c1115eb391ce3fb558fd7946c5bcaf6361c35b77b7a185b7697a5720ec7", size = 120062, upload-time = "2026-04-25T12:07:59.153Z" },
 ]
 
 [[package]]
@@ -401,7 +417,7 @@ wheels = [
 [[package]]
 name = "oapi-gen"
 version = "0.1.8"
-source = { editable = "." }
+source = { editable = "packages/oapi-gen" }
 dependencies = [
     { name = "black" },
     { name = "datamodel-code-generator" },
@@ -440,6 +456,44 @@ dev = [
     { name = "ruff", specifier = "==0.16.6" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.52.4" },
 ]
+
+[[package]]
+name = "oapi-gen-dishka"
+version = "0.1.8"
+source = { editable = "packages/oapi-gen-dishka" }
+dependencies = [
+    { name = "dishka" },
+    { name = "starlette" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "basedpyright" },
+    { name = "httpx" },
+    { name = "oapi-gen" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dishka", specifier = ">=1.10.1,<2" },
+    { name = "starlette", specifier = ">=1.0,<2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "basedpyright", specifier = "==1.39.10" },
+    { name = "httpx", specifier = "==0.28.1" },
+    { name = "oapi-gen", editable = "packages/oapi-gen" },
+    { name = "pytest", specifier = "==9.1.1" },
+    { name = "ruff", specifier = "==0.16.6" },
+]
+
+[[package]]
+name = "oapi-gen-workspace"
+version = "0.1.8"
+source = { virtual = "." }
 
 [[package]]
 name = "packaging"

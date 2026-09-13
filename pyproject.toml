@@ -1,54 +1,12 @@
-[build-system]
-requires = ["setuptools==84.0.0"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "oapi-gen"
+name = "oapi-gen-workspace"
 version = "0.1.8"
-description = "Strict OpenAPI-first server contract generator for Starlette and msgspec"
-readme = "README.md"
+description = "oapi-gen multi-package repository"
 requires-python = ">=3.12"
-dependencies = [
-  "black==26.5.1",
-  "datamodel-code-generator==0.76.2",
-  "isort==8.0.1",
-  "msgspec==0.21.1",
-  "starlette==1.6.0",
-  "PyYAML==6.0.3",
-]
 
-[project.scripts]
-oapi-gen = "oapi_gen.main:main"
+[tool.uv.workspace]
+members = ["packages/*"]
 
-[dependency-groups]
-dev = [
-  "basedpyright==1.39.10",
-  "httpx==0.28.1",
-  "pytest==9.1.1",
-  "python-multipart==0.0.32",
-  "ruff==0.16.6",
-  "uvicorn[standard]==0.52.4",
-]
-
-[tool.setuptools.packages.find]
-include = ["oapi_gen*"]
-
-[tool.setuptools.package-data]
-oapi_gen = ["THIRD_PARTY_NOTICES.md"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q"
-
-[tool.ruff]
-line-length = 100
-target-version = "py312"
-
-[tool.ruff.lint]
-select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
-
-[tool.basedpyright]
-include = ["oapi_gen", "tests"]
-pythonVersion = "3.12"
-typeCheckingMode = "standard"
-reportMissingTypeStubs = false
+[tool.uv.config-settings-package]
+# Expose the src -> oapi_gen mapping to static type checkers as well as Python.
+oapi-gen = { editable_mode = "strict" }

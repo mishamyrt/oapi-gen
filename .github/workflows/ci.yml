@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [".", "integrations/dishka"]
+        project: ["packages/oapi-gen", "packages/oapi-gen-dishka"]
         check:
           - name: Lint
             command: ruff check .
@@ -37,6 +37,6 @@ jobs:
         with:
           enable-cache: true
       - name: Install dependencies
-        run: uv sync --locked
+        run: uv sync --locked --all-packages
       - name: ${{ matrix.check.name }}
         run: uv run --no-sync ${{ matrix.check.command }}
