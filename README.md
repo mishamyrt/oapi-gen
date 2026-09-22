@@ -239,6 +239,7 @@ Version 0.1 intentionally supports a strict subset:
 - security requirement alternatives (OR), combined schemes (AND), and operation overrides;
 - one JSON or multipart request media type and one response media type per status;
 - JSON responses and `itemSchema` response streams using SSE, JSON Lines, NDJSON or JSON Sequence;
+- binary file responses (XLSX, PDF, images, etc.) as raw `bytes`, preserving the declared media type;
 - internal `components.mediaTypes` references in request and response content;
 - response `summary` docstrings and optional response `description` in OpenAPI 3.2;
 - multipart object bodies with scalar form fields and binary file uploads;
@@ -282,6 +283,12 @@ multiple object variants require a supported discriminator.
 Responses serialize model fields using their OpenAPI names, including aliases in
 nested models. Importing generated models or contracts does not load Starlette; the
 existing `create_router` export loads the HTTP adapter when first accessed.
+
+For a file response, declare its media type with `schema: {type: string, format: binary}`
+and return the generated response variant with `body=file_bytes`. An omitted or empty
+schema also produces a `bytes` body for non-JSON media types. Declare `Content-Disposition`
+in the response headers to set a download filename. Binary bodies are sent without JSON
+or base64 encoding; JSON responses keep their existing serialization.
 
 ## Runtime
 

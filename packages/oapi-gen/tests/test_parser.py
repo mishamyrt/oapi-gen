@@ -99,6 +99,36 @@ def test_response_names_cover_standard_and_custom_statuses(document: dict[str, A
     assert {response.status_code: response.class_name for response in operation.responses} == names
 
 
+@pytest.mark.parametrize(
+    "media_type,schema",
+    [
+        ("application/pdf", {"type": "string"}),
+        ("application/pdf", {"type": "string", "format": "byte"}),
+        ("application/pdf", {"type": "string", "format": "binary", "nullable": True}),
+        ("application/pdf", {"type": "object"}),
+        ("multipart/mixed", {"type": "string", "format": "binary"}),
+        ("application/*", {}),
+        ("invalid", {}),
+        ("application/pdf\r\nX-Injected: value", {}),
+    ],
+)
+def test_binary_responses_reject_unsupported_schemas_and_media_types(
+    document: dict[str, Any], media_type: str, schema: dict[str, Any]
+) -> None:
+    document["paths"] = {
+        "/file": {
+            "get": _operation(
+                "download",
+                responses={
+                    "200": {"description": "File", "content": {media_type: {"schema": schema}}}
+                },
+            )
+        }
+    }
+    with pytest.raises(GenerationError, match=r"GET /file.*response"):
+        OpenAPIParser(document, "hash").parse()
+
+
 @pytest.mark.parametrize("suffix", [".json", ".yaml"])
 def test_document_loading_preserves_source_hash(
     tmp_path: Path, document: dict[str, Any], suffix: str

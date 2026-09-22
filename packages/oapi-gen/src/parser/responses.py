@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from http import HTTPStatus
 
 from ..errors import GenerationError
@@ -59,6 +60,7 @@ def parse_responses(
         media_type: str | None = None
         property_counts = None
         streaming = False
+        binary = False
         event_fields = ()
         if content:
             if len(content) != 1:
@@ -67,7 +69,11 @@ def parse_responses(
                 )
             media_type, media = next(iter(content.items()))
             streaming = media_type in STREAM_MEDIA_TYPES
-            if not (_JSON_MEDIA_TYPE.fullmatch(media_type) or streaming):
+            binary = not (_JSON_MEDIA_TYPE.fullmatch(media_type) or streaming)
+            if binary and (
+                media_type.startswith("multipart/")
+                or not re.fullmatch(r"[\w!#$%&'+.^`|~-]+/[\w!#$%&'+.^`|~-]+", media_type, re.ASCII)
+            ):
                 raise GenerationError(f"{context}: unsupported response media type {media_type!r}")
             media_object = resolver.resolve_object(media, f"{response_context}.{media_type}")
             for keyword in ("itemEncoding", "prefixEncoding"):
@@ -94,9 +100,22 @@ def parse_responses(
                     f"{response_context}: itemSchema requires a sequential media type"
                 )
             schema_key = "itemSchema" if streaming else "schema"
-            schema = object_value(media_object.get(schema_key), f"{response_context}.{schema_key}")
+            schema = object_value(
+                media_object.get(schema_key, {} if binary else None),
+                f"{response_context}.{schema_key}",
+            )
             if media_type == "text/event-stream":
                 event_fields = parse_event_fields(resolver, schemas, schema, response_context)
+            elif binary:
+                resolved = resolve_schema(schema, resolver, response_context)
+                type_ref = schemas.parse(schema, response_context) if resolved else TypeRef("bytes")
+                if type_ref.annotation != "bytes" or (
+                    resolved and resolved.get("format") != "binary"
+                ):
+                    raise GenerationError(
+                        f"{response_context}: non-JSON response {media_type!r} requires "
+                        "a string schema with format: binary, or an empty schema"
+                    )
             else:
                 type_ref = schemas.parse(schema, response_context)
             property_counts = schemas.property_counts(schema, f"{context}.responses.{status_text}")
@@ -113,6 +132,7 @@ def parse_responses(
                 summary=summary,
                 streaming=streaming,
                 event_fields=event_fields,
+                binary=binary,
             )
         )
     return tuple(sorted(responses, key=lambda response: response.status_code))

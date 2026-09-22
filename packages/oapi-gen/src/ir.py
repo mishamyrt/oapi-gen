@@ -136,6 +136,7 @@ class Response:
     summary: str | None = None
     streaming: bool = False
     event_fields: tuple[EventField, ...] = ()
+    binary: bool = False
 
     @property
     def event_class_name(self) -> str:

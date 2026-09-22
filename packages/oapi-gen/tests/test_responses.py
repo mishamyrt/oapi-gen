@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import importlib
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -14,6 +15,83 @@ from .support import (
     json_response,
     make_client,
 )
+
+
+@pytest.mark.parametrize("validate_responses", [True, False])
+@pytest.mark.parametrize(
+    "media_type,media,version",
+    [
+        (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            {"schema": {"type": "string", "format": "binary"}},
+            "3.0.4",
+        ),
+        ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", {}, "3.1.0"),
+        ("application/octet-stream", {"schema": {}}, "3.1.0"),
+        ("application/pdf", {"schema": {"$ref": "#/components/schemas/File"}}, "3.1.0"),
+        ("image/png", {"$ref": "#/components/mediaTypes/File"}, "3.2.0"),
+        ("application/json", {"schema": {"type": "string", "format": "binary"}}, "3.1.0"),
+    ],
+)
+def test_file_responses_preserve_bytes_and_headers(
+    generate_api: ApiGenerator, validate_responses: bool, media_type: str, media: dict, version: str
+) -> None:
+    response_spec = {
+        "description": "File",
+        "content": {media_type: media},
+        "headers": {"Content-Disposition": {"required": True, "schema": {"type": "string"}}},
+    }
+    generated = generate_api(
+        {
+            "/file": {
+                "get": {
+                    "operationId": "download",
+                    "responses": {"200": response_spec, "400": response_spec},
+                }
+            }
+        },
+        {"File": {"type": "string", "format": "binary", "minLength": 4}},
+        media_types={"File": {"schema": {"$ref": "#/components/schemas/File"}}},
+        openapi_version=version,
+        validate_responses=validate_responses,
+    )
+    contracts = importlib.import_module(f"{generated.__name__}.contracts")
+    assert get_type_hints(contracts.Download.Ok)["body"] is bytes
+    content = b"PK\x03\x04\x00\xff\x80"
+    disposition = 'attachment; filename="report.xlsx"'
+    result = contracts.Download.Ok(body=content, content_disposition=disposition)
+
+    class Controller:
+        async def download(self, request):
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+    client = make_client(generated, Controller())
+    for variant, status in ((contracts.Download.Ok, 200), (contracts.Download.BadRequest, 400)):
+        result = variant(body=content, content_disposition=disposition)
+        response = client.get("/file")
+        assert response.status_code == status
+        if media_type == "application/json":
+            assert response.json() == base64.b64encode(content).decode()
+        else:
+            assert response.content == content
+        assert response.headers["content-type"] == media_type
+        assert response.headers["content-disposition"] == disposition
+        assert response.headers["content-length"] == str(len(response.content))
+    assert client.get("/openapi.json").json()["paths"]["/file"]["get"]["responses"]["200"] == (
+        response_spec
+    )
+    if validate_responses:
+        invalid_bodies: list[object] = [123]
+        if media_type != "application/json":
+            invalid_bodies.append(base64.b64encode(content).decode())
+        if media_type in {"application/pdf", "image/png"}:
+            invalid_bodies.append(b"x")
+        for body in invalid_bodies:
+            result = contracts.Download.Ok(body=body, content_disposition=disposition)
+            with pytest.raises(ValidationError):
+                client.get("/file")
 
 
 @pytest.mark.parametrize("validate_responses", [True, False])

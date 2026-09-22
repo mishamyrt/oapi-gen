@@ -330,6 +330,20 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
                 f"media_type={response.media_type!r}{headers}{resources})",
                 3,
             )
+        elif response.binary:
+            content = "__oapi_result.body"
+            if checked:
+                w.require("msgspec", "convert")
+                content = (
+                    f"convert({content}, "
+                    f"type=_{op.python_name}_{response.status_code}_decoder.type, "
+                    "builtin_types=(bytes,))"
+                )
+            w.line(
+                f"return Response({content}, status_code={response.status_code}, "
+                f"media_type={response.media_type!r}{headers})",
+                3,
+            )
         elif response.type_ref:
             if checked:
                 w.require("msgspec", "convert")
