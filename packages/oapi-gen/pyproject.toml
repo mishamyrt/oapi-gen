@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oapi-gen"
-version = "0.1.9"
+version = "0.1.10"
 description = "Strict OpenAPI-first server contract generator for Starlette and msgspec"
 readme = "README.md"
 requires-python = ">=3.12"

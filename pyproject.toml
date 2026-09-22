@@ -1,6 +1,6 @@
 [project]
 name = "oapi-gen-workspace"
-version = "0.1.9"
+version = "0.1.10"
 description = "oapi-gen multi-package repository"
 requires-python = ">=3.12"
 
