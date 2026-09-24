@@ -1,0 +1,18 @@
+<svg width="229" height="131" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><path d="M131 65.5c0 36.175-29.325 65.5-65.5 65.5S0 101.675 0 65.5 29.325 0 65.5 0 131 29.325 131 65.5zm28 65.5h-28L201 0h28z" id="a"/></defs><g fill="none" xlink:href="#a"><circle class="o" stroke-width="24" cx="65.5" cy="65.5" r="53.5"/><path class="slash" fill-rule="evenodd" d="M201 0L229 0 159 131 131 131z"/></g>
+<style>
+    .o {
+        stroke: #FF8813;
+    }
+    .slash {
+        fill: #FF8813;
+    }
+    @media (prefers-color-scheme: dark) {
+        .o {
+            stroke: #FFB164;
+        }
+        .slash {
+            fill: #FFB164;
+        }
+    }
+</style>
+</svg>

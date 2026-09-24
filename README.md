@@ -1,7 +1,13 @@
-# oapi-gen
+<h1 align="center">
+    <img width="100" src="./assets/logo.svg" alt="oapi-gen logo" /><br>
+        oapi-gen <br/>
+</h1>
+<p align="center">
+    Router generator for Starlette.<br/><br/>
+</p>
 
 `oapi-gen` generates implementation-facing Python 3.12+ contracts and HTTP adapters
-from an OpenAPI document using Starlette + msgspec. Handler
+from an OpenAPI document using Starlette and msgspec. Handler
 protocols and request/response envelopes remain independent of the HTTP framework
 and dependency injection. Handler implementations are bound explicitly when the
 router is created.
