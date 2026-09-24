@@ -49,9 +49,7 @@ class ResourceProvider(Provider):
 
     @provide(scope=Scope.REQUEST)
     async def resource(self, request: Request) -> AsyncIterator[RequestResource]:
-        resource = RequestResource(
-            name=request.headers.get("X-Request", "normal"), id=uuid4().hex
-        )
+        resource = RequestResource(name=request.headers.get("X-Request", "normal"), id=uuid4().hex)
         self.resources.append(resource)
         try:
             yield resource
@@ -77,17 +75,13 @@ def generated(tmp_path_factory):
                     "responses": {
                         "200": {
                             "description": "Resource id",
-                            "content": {
-                                "application/json": {"schema": {"type": "string"}}
-                            },
+                            "content": {"application/json": {"schema": {"type": "string"}}},
                         },
                     },
                 },
             },
         },
-        "components": {
-            "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}
-        },
+        "components": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}},
     }
     source = root / "spec.json"
     source.write_text(json.dumps(spec))
@@ -157,9 +151,7 @@ def build_app(generated, started=None):
         finally:
             await container.close()
 
-    router = generated.create_router(
-        generated.Handlers(items=Controller()), security=Security()
-    )
+    router = generated.create_router(generated.Handlers(items=Controller()), security=Security())
     generated_endpoint = router.routes[0].endpoint
 
     @inject_starlette
@@ -191,10 +183,7 @@ def test_generated_handlers_share_native_scope_with_security_and_dependencies(
 
     signature = inspect.signature(controller().list_items)
     assert list(signature.parameters) == ["request"]
-    assert (
-        signature.parameters["request"].annotation
-        is generated.contracts.ListItems.Request
-    )
+    assert signature.parameters["request"].annotation is generated.contracts.ListItems.Request
     assert signature.return_annotation is generated.contracts.ListItems.Response
 
 
@@ -248,14 +237,10 @@ def test_failures_finalize_dependencies_and_reset_context(generated):
                 assert provider.resources[-1].closed
                 with pytest.raises(RuntimeError, match="inside an HTTP request"):
                     await outside_probe()
-                denied = await client.get(
-                    "/items", headers={"Authorization": "Bearer denied"}
-                )
+                denied = await client.get("/items", headers={"Authorization": "Bearer denied"})
                 assert denied.status_code == 401
                 assert provider.resources[-1].closed
-                success = await client.get(
-                    "/items", headers={"Authorization": "Bearer accepted"}
-                )
+                success = await client.get("/items", headers={"Authorization": "Bearer accepted"})
                 assert success.status_code == 200
                 assert all(resource.closed for resource in provider.resources)
                 with pytest.raises(RuntimeError, match="inside an HTTP request"):

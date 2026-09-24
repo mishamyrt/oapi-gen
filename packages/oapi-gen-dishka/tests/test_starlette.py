@@ -16,9 +16,7 @@ from oapi_gen_dishka import inject, setup_dishka
 
 
 @pytest.mark.parametrize("streaming", [False, True])
-def test_starlette_scopes_are_shared_isolated_and_closed(
-    tmp_path: Path, monkeypatch, streaming
-):
+def test_starlette_scopes_are_shared_isolated_and_closed(tmp_path: Path, monkeypatch, streaming):
     specification = {
         "openapi": "3.2.0" if streaming else "3.1.0",
         "info": {"title": "Scope test", "version": "1"},
@@ -31,12 +29,8 @@ def test_starlette_scopes_are_shared_isolated_and_closed(
                         "200": {
                             "description": "value",
                             "content": {
-                                "application/jsonl"
-                                if streaming
-                                else "application/json": {
-                                    "itemSchema" if streaming else "schema": {
-                                        "type": "string"
-                                    }
+                                "application/jsonl" if streaming else "application/json": {
+                                    "itemSchema" if streaming else "schema": {"type": "string"}
                                 }
                             },
                         },
@@ -46,9 +40,7 @@ def test_starlette_scopes_are_shared_isolated_and_closed(
             }
         },
         "components": {
-            "securitySchemes": {
-                "key": {"type": "apiKey", "in": "header", "name": "X-Key"}
-            }
+            "securitySchemes": {"key": {"type": "apiKey", "in": "header", "name": "X-Key"}}
         },
     }
     source = tmp_path / "spec.json"
@@ -124,18 +116,11 @@ def test_starlette_scopes_are_shared_isolated_and_closed(
                 base_url="http://test",
             ) as client:
                 responses = await asyncio.gather(
-                    *[
-                        client.get("/value", headers={"X-Key": str(i)})
-                        for i in range(10)
-                    ]
+                    *[client.get("/value", headers={"X-Key": str(i)}) for i in range(10)]
                 )
-                assert [response.json() for response in responses] == [
-                    str(i) for i in range(10)
-                ]
+                assert [response.json() for response in responses] == [str(i) for i in range(10)]
                 transport.raise_app_exceptions = False
-                assert (
-                    await client.get("/value", headers={"X-Key": "fail"})
-                ).status_code == 500
+                assert (await client.get("/value", headers={"X-Key": "fail"})).status_code == 500
                 assert (
                     await client.get("/value", headers={"X-Key": "unavailable"})
                 ).status_code == 503
