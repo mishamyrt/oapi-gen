@@ -26,7 +26,6 @@ publish:
 	@for project in . packages/*; do uv version --project "$$project" --frozen "$(VERSION)" || exit $$?; done
 	uv lock
 	uv sync --locked --all-packages
-	uv run --no-sync python scripts/update_snapshot_versions.py
-	git add -- Makefile pyproject.toml packages/*/pyproject.toml uv.lock packages/oapi-gen/tests/snapshots
+	git add -- Makefile pyproject.toml packages/*/pyproject.toml uv.lock
 	git commit --allow-empty -m "chore: release v$(VERSION)"
 	git tag -a "v$(VERSION)" -m "Release v$(VERSION)"

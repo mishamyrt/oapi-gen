@@ -11,10 +11,14 @@ FIXTURE = Path(__file__).parent / "fixtures" / "cats.openapi.yaml"
 def test_generation_is_deterministic_and_check_detects_changes(tmp_path: Path) -> None:
     output = tmp_path / "generated_api"
     generate_package(FIXTURE, output)
-    first = {path.name: path.read_bytes() for path in output.iterdir()}
+    first = {
+        path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()
+    }
 
     generate_package(FIXTURE, output)
-    second = {path.name: path.read_bytes() for path in output.iterdir()}
+    second = {
+        path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()
+    }
     assert second == first
     check_package(FIXTURE, output)
 

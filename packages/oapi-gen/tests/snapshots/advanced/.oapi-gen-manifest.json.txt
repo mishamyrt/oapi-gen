@@ -3,12 +3,17 @@
     "__init__.py",
     "_cookies.py",
     "_runtime.py",
-    "contracts.py",
+    "contracts/__init__.py",
+    "contracts/_shared.py",
+    "contracts/admin.py",
+    "contracts/auth.py",
     "models.py",
     "openapi.json",
-    "router.py"
+    "router.py",
+    "routes/__init__.py",
+    "routes/admin.py",
+    "routes/auth.py"
   ],
   "generator": "oapi-gen",
-  "source_sha256": "bc992a4f0e652367ab7756437f7207d1c1db579e44540e68c06834396fc1ce98",
   "version": 1
 }

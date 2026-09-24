@@ -2,12 +2,15 @@
   "files": [
     "__init__.py",
     "_runtime.py",
-    "contracts.py",
+    "contracts/__init__.py",
+    "contracts/_shared.py",
+    "contracts/cats.py",
     "models.py",
     "openapi.json",
-    "router.py"
+    "router.py",
+    "routes/__init__.py",
+    "routes/cats.py"
   ],
   "generator": "oapi-gen",
-  "source_sha256": "7b3381eb8339af725253f04fe07b232aa9922b9cd9a5216c51fec7c10670ab71",
   "version": 1
 }

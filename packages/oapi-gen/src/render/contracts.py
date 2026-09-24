@@ -17,21 +17,55 @@ from .inspection import (
 from .writer import Writer, generated_header, render_imports, render_model_imports
 
 
+def shared_contract_names(spec: ApiSpec) -> list[str]:
+    names = []
+    if has_cookie_arrays(spec):
+        names.append("Cookie")
+    if has_multipart_files(spec):
+        names.append("MultipartFile")
+    schemes = used_security_schemes(spec)
+    if schemes:
+        names.extend(["SecurityHandler", "SecurityRejected"])
+        names.extend(scheme.class_name for scheme in schemes)
+    return names
+
+
 def render_contracts(spec: ApiSpec) -> str:
     writer = Writer()
-    writer.line(generated_header(spec.source_hash))
-    writer.line("from __future__ import annotations")
+    writer.line(generated_header())
+    writer.require("dataclasses", "dataclass")
+    for name in shared_contract_names(spec):
+        writer.require("._shared", f"{name} as {name}")
+    for group in spec.groups:
+        names = [group.class_name]
+        for operation in group.operations:
+            names.append(operation.class_name)
+            if operation.request_body is not None and operation.request_body.is_multipart:
+                names.append(operation.request_body.type_ref.annotation)
+        for name in names:
+            writer.require(f".{group.field_name}", f"{name} as {name}")
+    writer.line()
+    writer.line()
+    writer.line("@dataclass(frozen=True, slots=True, kw_only=True)")
+    writer.line("class Handlers:")
+    if spec.groups:
+        for group in spec.groups:
+            writer.line(f"{group.field_name}: {group.class_name}", indent=1)
+    else:
+        writer.line("pass", indent=1)
+    return writer.render()
 
-    type_refs = list(all_type_refs(spec))
-    imports = imports_for_types(type_refs)
-    imports.add(("dataclasses", "dataclass"))
-    imports.add(("typing", "Protocol"))
-    if any(response.streaming for operation in spec.operations for response in operation.responses):
-        imports.add(("collections.abc", "AsyncIterable"))
-    render_imports(writer, imports)
-    render_model_imports(writer, models_for_types(type_refs))
+
+def render_shared_contracts(spec: ApiSpec) -> str:
+    writer = Writer()
+    writer.line(generated_header())
+    writer.line("from __future__ import annotations")
+    if used_security_schemes(spec):
+        writer.require("dataclasses", "dataclass")
+    if used_security_schemes(spec) or has_multipart_files(spec):
+        writer.require("typing", "Protocol")
     if has_cookie_arrays(spec):
-        writer.require("._cookies", "Cookie as Cookie")
+        writer.require(".._cookies", "Cookie as Cookie")
 
     if has_multipart_files(spec):
         writer.line()
@@ -84,6 +118,26 @@ def render_contracts(spec: ApiSpec) -> str:
                 f"operation_id: str, credential: {scheme.class_name}) -> object | None: ...",
                 indent=1,
             )
+
+    return writer.render()
+
+
+def render_contract_group(spec: ApiSpec) -> str:
+    writer = Writer()
+    writer.line(generated_header())
+    writer.line("from __future__ import annotations")
+    type_refs = list(all_type_refs(spec))
+    imports = imports_for_types(type_refs)
+    imports.add(("dataclasses", "dataclass"))
+    imports.add(("typing", "Protocol"))
+    if any(response.streaming for operation in spec.operations for response in operation.responses):
+        imports.add(("collections.abc", "AsyncIterable"))
+    render_imports(writer, imports)
+    render_model_imports(writer, models_for_types(type_refs))
+    if has_cookie_arrays(spec):
+        writer.require("._shared", "Cookie")
+    if has_multipart_files(spec):
+        writer.require("._shared", "MultipartFile")
 
     for operation in spec.operations:
         if operation.request_body is not None and operation.request_body.is_multipart:
@@ -214,15 +268,6 @@ def render_contracts(spec: ApiSpec) -> str:
                 writer.line(repr(description), indent=2)
             writer.line("...", indent=2)
 
-    writer.line()
-    writer.line()
-    writer.line("@dataclass(frozen=True, slots=True, kw_only=True)")
-    writer.line("class Handlers:")
-    if spec.groups:
-        for group in spec.groups:
-            writer.line(f"{group.field_name}: {group.class_name}", indent=1)
-    else:
-        writer.line("pass", indent=1)
     return writer.render()
 
 
@@ -246,17 +291,17 @@ def render_docstring(
 
 
 def render_contract_imports(writer: Writer, spec: ApiSpec) -> None:
-    names = {"Handlers"}
-    security_schemes = used_security_schemes(spec)
-    if security_schemes:
-        names.add("SecurityHandler")
-        names.add("SecurityRejected")
-        names.update(scheme.class_name for scheme in security_schemes)
+    group = spec.groups[0]
+    module = f"..contracts.{group.field_name}"
+    writer.require(module, group.class_name)
     for operation in spec.operations:
-        writer.require(".contracts", f"{operation.class_name} as _contracts_{operation.class_name}")
+        writer.require(module, f"{operation.class_name} as _contracts_{operation.class_name}")
         if operation.request_body is not None and operation.request_body.is_multipart:
-            names.add(operation.request_body.type_ref.annotation)
+            writer.require(module, operation.request_body.type_ref.annotation)
+    if used_security_schemes(spec):
+        writer.require("..contracts._shared", "SecurityHandler")
+        writer.require("..contracts._shared", "SecurityRejected")
+        for scheme in used_security_schemes(spec):
+            writer.require("..contracts._shared", scheme.class_name)
     if has_cookie_arrays(spec):
-        writer.require(".contracts", "Cookie as _contracts_Cookie")
-    for name in names:
-        writer.require(".contracts", name)
+        writer.require("..contracts._shared", "Cookie as _contracts_Cookie")

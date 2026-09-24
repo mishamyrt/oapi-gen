@@ -19,8 +19,8 @@ def render_authorization(
     writer.line("__oapi_security_context: object | None = None", indent=2)
     writer.line("__oapi_security_satisfied = False", indent=2)
     names: dict[str, str] = {}
-    for index, scheme in enumerate(operation_security_schemes(operation, security_schemes)):
-        argument = f"__oapi_security_{index}"
+    for scheme in operation_security_schemes(operation, security_schemes):
+        argument = f"__oapi_credential_{scheme.python_name}"
         names[scheme.wire_name] = argument
         if scheme.scheme_type == "apiKey":
             source = {"query": "query_params", "header": "headers", "cookie": "cookies"}[
@@ -29,7 +29,7 @@ def render_authorization(
             value = f"__oapi_http.{source}.get({scheme.parameter_name!r}) or None"
         else:
             helper = "basic_auth" if scheme.scheme_type == "basic" else "bearer_auth"
-            writer.require("._runtime", f"{helper} as _runtime_{helper}")
+            writer.require(".._runtime", f"{helper} as _runtime_{helper}")
             value = f"_runtime_{helper}(__oapi_http.headers.get('authorization'))"
         writer.line(f"{argument} = {value}", indent=2)
 

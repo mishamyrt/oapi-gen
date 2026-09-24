@@ -13,6 +13,7 @@ from .support import (
     ApiGenerator,
     PackageImporter,
     SpecWriter,
+    make_client,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "cats.openapi.yaml"
@@ -191,3 +192,85 @@ def test_operation_names_do_not_replace_router_internals(generate_api: ApiGenera
     client = TestClient(app)
     for index in range(4):
         assert client.get(f"/{index}").status_code == 204
+
+
+def test_groups_preserve_route_priority_and_explicit_head(generate_api: ApiGenerator) -> None:
+    def operation(name, group):
+        return {
+            "operationId": name,
+            "tags": [group],
+            "responses": {"204": {"description": "No content"}},
+        }
+
+    generated = generate_api(
+        {
+            "/items/{item-id}": {
+                "parameters": [{"name": "item-id", "in": "path", "schema": {"type": "string"}}],
+                "get": operation("item", "A"),
+            },
+            "/items/latest": {
+                "get": operation("latest", "Z"),
+                "head": operation("headLatest", "A"),
+            },
+        }
+    )
+    contracts = importlib.import_module(f"{generated.__name__}.contracts")
+    grouped = importlib.import_module(f"{generated.__name__}.contracts.z")
+    assert contracts.Latest is grouped.Latest
+    calls = []
+
+    class Controller:
+        async def item(self, request):
+            calls.append(request.item_id)
+            return contracts.Item.NoContent()
+
+        async def latest(self, request):
+            calls.append("get")
+            return contracts.Latest.NoContent()
+
+        async def head_latest(self, request):
+            calls.append("head")
+            return contracts.HeadLatest.NoContent()
+
+    controller = Controller()
+    router = generated.create_router(generated.Handlers(a=controller, z=controller), prefix="/api")
+    assert [route.name for route in router.routes[:-1]] == ["latest", "headLatest", "item"]
+    client = TestClient(Starlette(routes=router.routes))
+    assert client.get("/api/items/latest").status_code == 204
+    assert client.head("/api/items/latest").status_code == 204
+    assert client.get("/api/items/123").status_code == 204
+    assert calls == ["get", "head", "123"]
+
+
+def test_named_codecs_do_not_collide_between_operations(generate_api: ApiGenerator) -> None:
+    generated = generate_api(
+        {
+            f"/{name}": {
+                "get": {
+                    "operationId": name,
+                    "parameters": [
+                        {"name": parameter, "in": "query", "schema": {"type": type_name}}
+                    ],
+                    "responses": {"204": {"description": "No content"}},
+                }
+            }
+            for name, parameter, type_name in (
+                ("foo", "bar_parameter_baz", "integer"),
+                ("foo_parameter_bar", "baz", "boolean"),
+            )
+        }
+    )
+    contracts = importlib.import_module(f"{generated.__name__}.contracts")
+
+    class Controller:
+        async def foo(self, request):
+            assert request.bar_parameter_baz == 7
+            return contracts.Foo.NoContent()
+
+        async def foo_parameter_bar(self, request):
+            assert request.baz is True
+            return contracts.FooParameterBar.NoContent()
+
+    client = make_client(generated, Controller())
+    assert client.get("/foo", params={"bar_parameter_baz": 7}).status_code == 204
+    assert client.get("/foo_parameter_bar", params={"baz": "true"}).status_code == 204

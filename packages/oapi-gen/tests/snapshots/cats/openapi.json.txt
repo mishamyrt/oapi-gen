@@ -148,6 +148,12 @@
           }
         }
       },
+      "Cats": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Cat"
+        }
+      },
       "HTTPError": {
         "type": "object",
         "required": [
@@ -157,12 +163,6 @@
           "message": {
             "type": "string"
           }
-        }
-      },
-      "Cats": {
-        "type": "array",
-        "items": {
-          "$ref": "#/components/schemas/Cat"
         }
       }
     }

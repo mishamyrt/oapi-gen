@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from .errors import CheckFailedError, GenerationError
@@ -13,7 +13,9 @@ from .formatter import format_python
 from .models import generate_models
 from .parser import parse_openapi
 from .render import generated_header, render_contracts, render_init, render_router
+from .render.contracts import render_contract_group, render_shared_contracts
 from .render.inspection import has_cookie_arrays
+from .render.router import render_routes
 
 _MANIFEST = ".oapi-gen-manifest.json"
 
@@ -31,19 +33,24 @@ def render_package(
 ) -> RenderedPackage:
     spec_path = spec_path.expanduser().resolve()
     spec, document = parse_openapi(spec_path)
-    header = generated_header(spec.source_hash)
+    header = generated_header()
     components = document.get("components", {})
     schemas = components.get("schemas", {})
     models_source = generate_models(spec_path, header, document) if schemas else f"{header}\n"
     sources = {
         "__init__.py": render_init(spec),
-        "contracts.py": render_contracts(spec),
+        "contracts/__init__.py": render_contracts(spec),
+        "contracts/_shared.py": render_shared_contracts(spec),
         "models.py": models_source,
-        "router.py": render_router(
-            spec,
-            validate_responses=validate_responses,
-        ),
+        "router.py": render_router(spec),
+        "routes/__init__.py": header + "\n",
     }
+    for group in spec.groups:
+        grouped_spec = replace(spec, operations=group.operations, groups=(group,))
+        sources[f"contracts/{group.field_name}.py"] = render_contract_group(grouped_spec)
+        sources[f"routes/{group.field_name}.py"] = render_routes(
+            grouped_spec, validate_responses=validate_responses
+        )
     runtime = Path(__file__).parent / "render" / "runtime.py"
     sources["_runtime.py"] = header + "\n" + runtime.read_text(encoding="utf-8")
     if any(response.streaming for operation in spec.operations for response in operation.responses):
@@ -60,6 +67,10 @@ def render_package(
         sources["_cookies.py"] = header + "\n" + cookies.read_text(encoding="utf-8")
     files = {name: _format_and_validate(name, source) for name, source in sources.items()}
     _validate_msgspec_package(files)
+    # Stabilize declaration order without changing model fields or ordered OpenAPI arrays.
+    document = {**document, "paths": dict(sorted(document["paths"].items()))}
+    if schemas:
+        document["components"] = {**components, "schemas": dict(sorted(schemas.items()))}
     files["openapi.json"] = json.dumps(document, indent=2, ensure_ascii=False) + "\n"
     return RenderedPackage(source_hash=spec.source_hash, files=files)
 
@@ -88,7 +99,6 @@ def generate_package(
         manifest = {
             "generator": "oapi-gen",
             "version": 1,
-            "source_sha256": rendered.source_hash,
             "files": sorted(rendered.files),
         }
         _atomic_write(output / _MANIFEST, json.dumps(manifest, indent=2, sort_keys=True) + "\n")
@@ -128,9 +138,7 @@ def check_package(
         except (OSError, json.JSONDecodeError):
             stale.append(_MANIFEST)
         else:
-            if manifest.get("source_sha256") != rendered.source_hash or manifest.get(
-                "files"
-            ) != sorted(rendered.files):
+            if manifest.get("files") != sorted(rendered.files):
                 stale.append(_MANIFEST)
     if stale:
         raise CheckFailedError(sorted(set(stale)))
@@ -142,7 +150,9 @@ def _validate_msgspec_package(files: dict[str, str]) -> None:
         package = Path(directory) / "generated"
         package.mkdir()
         for name, content in files.items():
-            (package / name).write_text(content, encoding="utf-8")
+            path = package / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
         result = subprocess.run(
             [
                 sys.executable,

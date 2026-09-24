@@ -9,5 +9,6 @@ snapshots cover the Starlette router, msgspec models, HTTP helpers and OpenAPI J
 
 When intentionally changing generated output, generate the matching fixture into
 a temporary directory, inspect the diff, and copy each output file here with
-`.txt` appended to its name. Include `.oapi-gen-manifest.json`. Do not regenerate
+`.txt` appended to its name, preserving the `contracts/` and `routes/` subdirectories.
+Include `.oapi-gen-manifest.json`. Do not regenerate
 snapshots to make a structural refactor pass.

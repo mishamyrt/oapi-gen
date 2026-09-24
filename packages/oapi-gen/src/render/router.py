@@ -18,16 +18,14 @@ from .security import render_authorization
 from .writer import Writer, generated_header, render_imports, render_model_imports
 
 
-def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
+def render_routes(spec: ApiSpec, *, validate_responses: bool = True) -> str:
     w = Writer()
-    w.line(generated_header(spec.source_hash))
+    w.line(generated_header())
     w.line("from __future__ import annotations")
     w.require("msgspec", "json")
-    w.require("pathlib", "Path")
     w.require("starlette.requests", "Request")
     w.require("starlette.responses", "Response")
     w.require("starlette.routing", "Route")
-    w.require("starlette.routing", "Router")
     for name in (
         "RequestError",
         "boolean",
@@ -41,7 +39,7 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
         "parameter",
         "upload",
     ):
-        w.require("._runtime", f"{name} as _runtime_{name}")
+        w.require(".._runtime", f"{name} as _runtime_{name}")
     refs = list(all_type_refs(spec))
     render_imports(w, imports_for_types(refs))
     render_model_imports(w, models_for_types(refs))
@@ -50,28 +48,28 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
     if has_cookie_arrays(spec) and validate_responses:
         w.line("_cookie_decoder = json.Decoder(list[_contracts_Cookie] | None)")
     for op in spec.operations:
-        for index, param in enumerate(op.parameters):
+        for param in op.parameters:
             annotation = param.type_ref.annotated
-            w.line(f"_{op.python_name}_parameter_{index} = {annotation}")
+            w.line(f"_{op.python_name}__parameter_{param.python_name} = {annotation}")
             # Fail at import (and generation) for unsupported types, not on the first request.
-            w.line(f"json.Decoder(_{op.python_name}_parameter_{index})")
+            w.line(f"json.Decoder(_{op.python_name}__parameter_{param.python_name})")
         if op.request_body:
             body = op.request_body
             if body.property_counts is not None:
-                w.line(f"_{op.python_name}_body_properties = {body.property_counts!r}")
+                w.line(f"_{op.python_name}__body_properties = {body.property_counts!r}")
             if body.is_multipart:
-                for index, field in enumerate(body.multipart_fields):
+                for field in body.multipart_fields:
                     if not field.is_file:
                         annotation = field.type_ref.annotated
-                        w.line(f"_{op.python_name}_form_{index} = {annotation}")
-                        w.line(f"json.Decoder(_{op.python_name}_form_{index})")
+                        w.line(f"_{op.python_name}__form_{field.python_name} = {annotation}")
+                        w.line(f"json.Decoder(_{op.python_name}__form_{field.python_name})")
             else:
                 annotation = body.type_ref.annotated
-                w.line(f"_{op.python_name}_body_decoder = json.Decoder({annotation})")
+                w.line(f"_{op.python_name}__body_decoder = json.Decoder({annotation})")
         for response in op.responses:
             if response.event_fields:
-                w.require("._streams", "EventField as _streams_EventField")
-                w.line(f"_{op.python_name}_{response.status_code}_event_fields = (")
+                w.require(".._streams", "EventField as _streams_EventField")
+                w.line(f"_{op.python_name}__{response.status_code}_event_fields = (")
                 for field in response.event_fields:
                     w.line(
                         f"_streams_EventField({field.python_name!r}, {field.required!r}, "
@@ -83,29 +81,31 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
                 w.line(")")
             if response.property_counts is not None:
                 w.line(
-                    f"_{op.python_name}_{response.status_code}_properties = "
+                    f"_{op.python_name}__{response.status_code}_properties = "
                     f"{response.property_counts!r}"
                 )
             if response.type_ref:
                 annotation = response.type_ref.annotated
                 w.line(
-                    f"_{op.python_name}_{response.status_code}_decoder = json.Decoder({annotation})"
+                    f"_{op.python_name}__{response.status_code}_decoder = "
+                    f"json.Decoder({annotation})"
                 )
-            for index, header in enumerate(response.headers):
+            for header in response.headers:
                 annotation = header.type_ref.annotated
                 w.line(
-                    f"_{op.python_name}_{response.status_code}_header_{index} = "
+                    f"_{op.python_name}__{response.status_code}_header_{header.python_name} = "
                     f"json.Decoder({annotation})"
                 )
     schemes = used_security_schemes(spec)
     w.line()
-    signature = "def create_router(handlers: Handlers, *, "
+    signature = f"def create_routes(handler: {spec.groups[0].class_name}, *, "
     if schemes:
         signature += "security: SecurityHandler, "
-    w.line(signature + 'prefix: str = "", include_schema: bool = True) -> Router:')
-    w.line("__oapi_handlers = handlers", 1)
+    w.line(signature + 'prefix: str = "") -> dict[tuple[str, str], Route]:')
+    w.line("__oapi_handler = handler", 1)
     if schemes:
         w.line("__oapi_security = security", 1)
+    w.line("__oapi_routes: dict[tuple[str, str], Route] = {}", 1)
     by_name = {scheme.wire_name: scheme for scheme in schemes}
     for op in spec.operations:
         w.line()
@@ -137,8 +137,6 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
             w.line("return _runtime_error_response(__oapi_error)", 4 if streaming else 3)
         else:
             render_endpoint(w, op, validate_responses)
-    w.line("__oapi_routes = [", 1)
-    for op in spec.operations:
         path_names = {
             param.wire_name: param.python_name
             for param in op.parameters
@@ -148,15 +146,48 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
             r"{([^{}]+)}", lambda match, names=path_names: "{" + names[match[1]] + "}", op.path
         )
         w.line(
-            f"Route(prefix + {route_path!r}, __oapi_endpoint_{op.python_name}, "
-            f"methods=[{op.method.upper()!r}], name={op.operation_id!r}),",
-            2,
+            f"__oapi_route_{op.python_name} = Route(prefix + {route_path!r}, "
+            f"__oapi_endpoint_{op.python_name}, "
+            f"methods=[{op.method.upper()!r}], name={op.operation_id!r})",
+            1,
         )
-    w.line("]", 1)
-    # Starlette implicitly adds HEAD to GET, which would shadow a declared HEAD operation.
-    for index, op in enumerate(spec.operations):
-        if op.method.upper() == "GET":
-            w.line(f"__oapi_routes[{index}].methods = {{'GET'}}", 1)
+        # Starlette adds HEAD to GET; keep explicitly declared methods independent.
+        if op.method == "get":
+            w.line(f"__oapi_route_{op.python_name}.methods = {{'GET'}}", 1)
+        w.line(f"__oapi_routes[{(op.path, op.method)!r}] = __oapi_route_{op.python_name}", 1)
+    w.line("return __oapi_routes", 1)
+    return w.render()
+
+
+def render_router(spec: ApiSpec) -> str:
+    w = Writer()
+    w.line(generated_header())
+    w.require("msgspec", "json")
+    w.require("pathlib", "Path")
+    w.require("starlette.requests", "Request")
+    w.require("starlette.responses", "Response")
+    w.require("starlette.routing", "Route")
+    w.require("starlette.routing", "Router")
+    w.require(".contracts", "Handlers")
+    if used_security_schemes(spec):
+        w.require(".contracts", "SecurityHandler")
+    for group in spec.groups:
+        w.require(f".routes.{group.field_name}", f"create_routes as _routes_{group.field_name}")
+    w.line()
+    signature = "def create_router(handlers: Handlers, *, "
+    if used_security_schemes(spec):
+        signature += "security: SecurityHandler, "
+    w.line(signature + 'prefix: str = "", include_schema: bool = True) -> Router:')
+    w.line("__oapi_by_path: dict[tuple[str, str], Route] = {}", 1)
+    for group in spec.groups:
+        secured = any(operation_uses_security(op) for op in group.operations)
+        security = ", security=security" if secured else ""
+        w.line(
+            f"__oapi_by_path.update(_routes_{group.field_name}(handlers.{group.field_name}, "
+            f"prefix=prefix{security}))",
+            1,
+        )
+    w.line("__oapi_routes = [__oapi_by_path[key] for key in sorted(__oapi_by_path)]", 1)
     w.line("if include_schema:", 1)
     w.line("__oapi_schema = json.decode(Path(__file__).with_name('openapi.json').read_bytes())", 2)
     w.line(
@@ -164,7 +195,7 @@ def render_router(spec: ApiSpec, *, validate_responses: bool = True) -> str:
         "for path, item in __oapi_schema['paths'].items()}",
         2,
     )
-    w.line("__oapi_schema_bytes = _encoder.encode(__oapi_schema)", 2)
+    w.line("__oapi_schema_bytes = json.encode(__oapi_schema)", 2)
     w.line("async def __oapi_openapi(request: Request) -> Response:", 2)
     w.line("return Response(__oapi_schema_bytes, media_type='application/json')", 3)
     w.line("__oapi_routes.append(Route(prefix + '/openapi.json', __oapi_openapi))", 2)
@@ -177,7 +208,7 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
     has_input = bool(op.parameters or op.request_body)
     if has_input:
         w.line("try:", 2)
-    for index, param in enumerate(op.parameters):
+    for param in op.parameters:
         source = {
             "query": "query_params",
             "path": "path_params",
@@ -199,8 +230,8 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
             and items.get("type") == "boolean"
         ):
             value = f"[_runtime_boolean(item) for item in ({value} or [])]"
-        target = f"_{op.python_name}_parameter_{index}"
-        variable = f"__oapi_parameter_{index}"
+        target = f"_{op.python_name}__parameter_{param.python_name}"
+        variable = f"__oapi_parameter_{param.python_name}"
         w.line(
             f"{variable} = _runtime_parameter({value}, {target}, "
             f"{(param.location, param.wire_name)!r}, "
@@ -218,9 +249,9 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
             w.line("_runtime_check_json_content_type(__oapi_http.headers.get('content-type'))", 4)
             w.line(
                 f"__oapi_body = _runtime_json_body(__oapi_bytes, "
-                f"_{op.python_name}_body_decoder, required={body.required!r}"
+                f"_{op.python_name}__body_decoder, required={body.required!r}"
                 + (
-                    f", property_counts=_{op.python_name}_body_properties"
+                    f", property_counts=_{op.python_name}__body_properties"
                     if body.property_counts is not None
                     else ""
                 )
@@ -243,8 +274,7 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
     if errors:
         w.line("try:", 2)
     w.line(
-        f"__oapi_result = await __oapi_handlers.{op.group_field_name}."
-        f"{op.python_name}(__oapi_request)",
+        f"__oapi_result = await __oapi_handler.{op.python_name}(__oapi_request)",
         3 if errors else 2,
     )
     if errors:
@@ -262,7 +292,7 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
             w.require("msgspec", "to_builtins")
             w.require("starlette.datastructures", "MutableHeaders")
             w.line("__oapi_headers = MutableHeaders()", 3)
-            for index, header in enumerate(response.headers):
+            for header in response.headers:
                 value = f"__oapi_result.{header.python_name}"
                 if header.is_cookie_array:
                     if checked:
@@ -277,7 +307,7 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
                     value = "__oapi_cookie_headers"
                 if checked:
                     value = (
-                        f"_{op.python_name}_{response.status_code}_header_{index}"
+                        f"_{op.python_name}__{response.status_code}_header_{header.python_name}"
                         f".decode(_encoder.encode({value}))"
                     )
                 w.line(f"__oapi_header = {value}", 3)
@@ -301,24 +331,24 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
             headers = ", headers=__oapi_headers"
         if response.streaming:
             w.require("functools", "partial")
-            w.require("._streams", "StreamResponse as _streams_StreamResponse")
+            w.require(".._streams", "StreamResponse as _streams_StreamResponse")
             if response.event_fields:
-                w.require("._streams", "encode_sse_item as _streams_encode_sse_item")
+                w.require(".._streams", "encode_sse_item as _streams_encode_sse_item")
                 encode = (
                     "partial(_streams_encode_sse_item, "
                     f"event_type=_contracts_{op.class_name}.{response.event_class_name}, "
-                    f"fields=_{op.python_name}_{response.status_code}_event_fields, "
+                    f"fields=_{op.python_name}__{response.status_code}_event_fields, "
                     f"checked={checked!r}"
                 )
             else:
-                w.require("._streams", "encode_json_item as _streams_encode_json_item")
+                w.require(".._streams", "encode_json_item as _streams_encode_json_item")
                 encode = (
                     "partial(_streams_encode_json_item, "
-                    f"decoder=_{op.python_name}_{response.status_code}_decoder, "
+                    f"decoder=_{op.python_name}__{response.status_code}_decoder, "
                     f"media_type={response.media_type!r}, checked={checked!r}"
                 )
             if response.property_counts is not None:
-                encode += f", property_counts=_{op.python_name}_{response.status_code}_properties"
+                encode += f", property_counts=_{op.python_name}__{response.status_code}_properties"
             resources = (
                 ", resources=__oapi_resources"
                 if op.request_body is not None and op.request_body.is_multipart
@@ -336,7 +366,7 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
                 w.require("msgspec", "convert")
                 content = (
                     f"convert({content}, "
-                    f"type=_{op.python_name}_{response.status_code}_decoder.type, "
+                    f"type=_{op.python_name}__{response.status_code}_decoder.type, "
                     "builtin_types=(bytes,))"
                 )
             w.line(
@@ -350,14 +380,14 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
                 w.require("msgspec", "to_builtins")
                 w.line(
                     "__oapi_body = convert(to_builtins(__oapi_result.body), "
-                    f"type=_{op.python_name}_{response.status_code}_decoder.type)",
+                    f"type=_{op.python_name}__{response.status_code}_decoder.type)",
                     3,
                 )
                 w.line("__oapi_content = _encoder.encode(__oapi_body)", 3)
                 if response.property_counts is not None:
                     w.line(
                         "_runtime_check_property_counts(json.decode(__oapi_content), "
-                        f"**_{op.python_name}_{response.status_code}_properties)",
+                        f"**_{op.python_name}__{response.status_code}_properties)",
                         3,
                     )
             else:
@@ -384,7 +414,7 @@ def render_form(w: Writer, op: Operation) -> None:
         w.line("try:", indent)
         w.line(
             "_runtime_check_property_counts(dict(__oapi_form), "
-            f"**_{op.python_name}_body_properties)",
+            f"**_{op.python_name}__body_properties)",
             indent + 1,
         )
         w.require("msgspec", "ValidationError")
@@ -393,7 +423,7 @@ def render_form(w: Writer, op: Operation) -> None:
             "raise _runtime_RequestError(str(__oapi_error), ('body',)) from __oapi_error",
             indent + 1,
         )
-    for index, field in enumerate(body.multipart_fields):
+    for field in body.multipart_fields:
         getter = "getlist" if field.is_array else "get"
         value = f"__oapi_form.{getter}({field.wire_name!r})"
         if field.is_file:
@@ -408,11 +438,11 @@ def render_form(w: Writer, op: Operation) -> None:
             if field.type_ref.annotation.removesuffix(" | None") == "bool":
                 value = f"_runtime_boolean({value})"
             expr = (
-                f"_runtime_parameter({value}, _{op.python_name}_form_{index}, "
+                f"_runtime_parameter({value}, _{op.python_name}__form_{field.python_name}, "
                 f"{('body', field.wire_name)!r}, required={field.required!r})"
             )
-        w.line(f"__oapi_field_{index} = {expr}", indent)
+        w.line(f"__oapi_field_{field.python_name} = {expr}", indent)
     arguments = ", ".join(
-        f"{field.python_name}=__oapi_field_{i}" for i, field in enumerate(body.multipart_fields)
+        f"{field.python_name}=__oapi_field_{field.python_name}" for field in body.multipart_fields
     )
     w.line(f"__oapi_body = {body.type_ref.annotation}({arguments})", indent)

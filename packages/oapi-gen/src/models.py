@@ -18,7 +18,10 @@ def generate_models(spec_path: Path, header: str, document: dict[str, Any]) -> s
     schemas = prepare_component_schemas(document, Resolver(document))
     model_document = {
         **document,
-        "components": {**document.get("components", {}), "schemas": schemas},
+        "components": {
+            **document.get("components", {}),
+            "schemas": dict(sorted(schemas.items())),
+        },
     }
     try:
         result = generate(

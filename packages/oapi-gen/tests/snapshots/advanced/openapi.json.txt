@@ -75,42 +75,6 @@
         }
       }
     },
-    "/auth/refresh": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Рефреш токена",
-        "description": "Берет refresh token из cookie, валидирует его и выдает новый JWT в cookie.",
-        "operationId": "refreshToken",
-        "responses": {
-          "200": {
-            "description": "JWT успешно обновлен",
-            "headers": {
-              "Set-Cookie": {
-                "description": "Новый JWT установлен в cookie",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthSuccessResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Невалидный или истекший refresh token"
-          },
-          "422": {
-            "$ref": "#/components/responses/ValidationError"
-          }
-        }
-      }
-    },
     "/auth/logout": {
       "post": {
         "tags": [
@@ -137,6 +101,93 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Информация о текущем пользователе",
+        "description": "Полная информация о текущем пользователе с его доступными лицензиями",
+        "operationId": "getCurrentUser",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Полная информация о пользователе",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не авторизован"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/auth/password": {
+      "put": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Обновление пароля",
+        "description": "Обновляет пароль пользователя, если JWT валиден.\nВ ответе устанавливает новые JWT и refresh token в cookie.\n",
+        "operationId": "updatePassword",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Пароль успешно обновлен",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Новые JWT и refresh token установлены в cookie",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос"
+          },
+          "401": {
+            "description": "JWT отсутствует или невалиден"
           },
           "422": {
             "$ref": "#/components/responses/ValidationError"
@@ -220,35 +271,20 @@
         }
       }
     },
-    "/auth/password": {
-      "put": {
+    "/auth/refresh": {
+      "post": {
         "tags": [
           "Auth"
         ],
-        "summary": "Обновление пароля",
-        "description": "Обновляет пароль пользователя, если JWT валиден.\nВ ответе устанавливает новые JWT и refresh token в cookie.\n",
-        "operationId": "updatePassword",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePasswordRequest"
-              }
-            }
-          }
-        },
+        "summary": "Рефреш токена",
+        "description": "Берет refresh token из cookie, валидирует его и выдает новый JWT в cookie.",
+        "operationId": "refreshToken",
         "responses": {
           "200": {
-            "description": "Пароль успешно обновлен",
+            "description": "JWT успешно обновлен",
             "headers": {
               "Set-Cookie": {
-                "description": "Новые JWT и refresh token установлены в cookie",
+                "description": "Новый JWT установлен в cookie",
                 "schema": {
                   "type": "string"
                 }
@@ -262,44 +298,8 @@
               }
             }
           },
-          "400": {
-            "description": "Некорректный запрос"
-          },
           "401": {
-            "description": "JWT отсутствует или невалиден"
-          },
-          "422": {
-            "$ref": "#/components/responses/ValidationError"
-          }
-        }
-      }
-    },
-    "/auth/me": {
-      "get": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Информация о текущем пользователе",
-        "description": "Полная информация о текущем пользователе с его доступными лицензиями",
-        "operationId": "getCurrentUser",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Полная информация о пользователе",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserItem"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Не авторизован"
+            "description": "Невалидный или истекший refresh token"
           },
           "422": {
             "$ref": "#/components/responses/ValidationError"
@@ -598,94 +598,7 @@
       }
     },
     "schemas": {
-      "Role": {
-        "type": "string",
-        "enum": [
-          "admin",
-          "geologist",
-          "office_geologist",
-          "management"
-        ]
-      },
-      "LoginRequest": {
-        "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "user@example.com"
-          },
-          "password": {
-            "type": "string",
-            "format": "password",
-            "example": "StrongPassword123!"
-          }
-        }
-      },
-      "PasswordResetRequest": {
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "user@example.com"
-          }
-        }
-      },
-      "PasswordResetConfirmRequest": {
-        "type": "object",
-        "required": [
-          "password",
-          "token"
-        ],
-        "properties": {
-          "password": {
-            "type": "string",
-            "format": "password",
-            "example": "NewStrongPassword123!"
-          },
-          "token": {
-            "type": "string",
-            "example": "reset-token-from-email-link"
-          }
-        }
-      },
-      "UpdatePasswordRequest": {
-        "type": "object",
-        "required": [
-          "old_password",
-          "new_password"
-        ],
-        "properties": {
-          "old_password": {
-            "type": "string",
-            "format": "password",
-            "example": "OldPassword"
-          },
-          "new_password": {
-            "type": "string",
-            "format": "password",
-            "example": "NewStrongPassword123!"
-          }
-        }
-      },
       "AuthSuccessResponse": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string",
-            "example": "success"
-          }
-        }
-      },
-      "MessageResponse": {
         "type": "object",
         "properties": {
           "message": {
@@ -737,6 +650,134 @@
             "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
           }
         }
+      },
+      "HTTPValidationError": {
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "properties": {
+          "detail": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationErrorItem"
+            }
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "StrongPassword123!"
+          }
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "success"
+          }
+        }
+      },
+      "PasswordResetConfirmRequest": {
+        "type": "object",
+        "required": [
+          "password",
+          "token"
+        ],
+        "properties": {
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "NewStrongPassword123!"
+          },
+          "token": {
+            "type": "string",
+            "example": "reset-token-from-email-link"
+          }
+        }
+      },
+      "PasswordResetRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "user@example.com"
+          }
+        }
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "geologist",
+          "office_geologist",
+          "management"
+        ]
+      },
+      "UpdatePasswordRequest": {
+        "type": "object",
+        "required": [
+          "old_password",
+          "new_password"
+        ],
+        "properties": {
+          "old_password": {
+            "type": "string",
+            "format": "password",
+            "example": "OldPassword"
+          },
+          "new_password": {
+            "type": "string",
+            "format": "password",
+            "example": "NewStrongPassword123!"
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "last_name": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "patronymic": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "must_change_password": {
+            "type": "boolean"
+          },
+          "available_licenses": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "minProperties": 1
       },
       "UserItem": {
         "type": "object",
@@ -888,47 +929,6 @@
             "example": {}
           }
         }
-      },
-      "HTTPValidationError": {
-        "type": "object",
-        "required": [
-          "detail"
-        ],
-        "properties": {
-          "detail": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ValidationErrorItem"
-            }
-          }
-        }
-      },
-      "UpdateUserRequest": {
-        "type": "object",
-        "properties": {
-          "last_name": {
-            "type": "string"
-          },
-          "first_name": {
-            "type": "string"
-          },
-          "patronymic": {
-            "type": "string"
-          },
-          "is_active": {
-            "type": "boolean"
-          },
-          "must_change_password": {
-            "type": "boolean"
-          },
-          "available_licenses": {
-            "type": "array",
-            "items": {
-              "type": "integer"
-            }
-          }
-        },
-        "minProperties": 1
       }
     }
   }

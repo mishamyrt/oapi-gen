@@ -110,6 +110,45 @@ oapi-gen check openapi.yaml --output app/http/generated
 Operation and field descriptions are included in generated contract docstrings,
 so they remain available while implementing handlers in an IDE.
 
+Generated contracts and route implementations are split by `x-handler-group`,
+falling back to the first tag or `default`:
+
+```text
+generated/
+  contracts/
+    __init__.py
+    _shared.py
+    cats.py
+    dogs.py
+  routes/
+    __init__.py
+    cats.py
+    dogs.py
+  models.py
+  router.py
+  __init__.py
+  _runtime.py
+  openapi.json
+  .oapi-gen-manifest.json
+```
+
+Existing imports such as `from app.http.generated.contracts import ListCats`
+remain supported; `from app.http.generated.contracts.cats import ListCats` imports
+the same class. `create_router` combines the groups in the original path/method
+order. Shared models remain in `models.py`.
+
+Generated headers are constant, and the manifest tracks generated paths without
+a source hash. YAML comments do not change the output. Component schemas are
+ordered by name before model generation; exported paths and schema declarations
+also have stable ordering. Model field order and OpenAPI array order are preserved.
+`check` regenerates and compares file contents to detect stale output.
+
+Run `generate` once to migrate an existing package. Its manifest lets the generator
+remove the old `contracts.py` and obsolete group files while preserving files it
+does not manage. Include the new `contracts` and `routes` subpackages when packaging
+generated code. Independently edited groups share only the package exports, handler
+container, router assembly, models, and OpenAPI document.
+
 Handler protocols use the group name with a `Handler` suffix, for example
 `AuthHandler` and `CatsHandler`. Operations without a group use `DefaultHandler`.
 The `security` group uses `SecurityHandler_2` because `SecurityHandler` is reserved
@@ -517,7 +556,7 @@ The parser and renderer are organized by responsibility:
 The existing `oapi_gen.parser` and `oapi_gen.render` entry points remain available.
 Snapshot tests compare generated files and the manifest byte for byte. Update the
 snapshots only when an intentional output change has been reviewed, including changes
-to the generator version or example specifications.
+to example specifications. A generator version bump alone does not change snapshots.
 
 The operation parsing and naming behavior is partly adapted from the MIT-licensed
 `fastapi-code-generator`; its copyright notice is included in the package.
@@ -551,8 +590,8 @@ make publish
 ```
 
 The command updates the workspace and package versions, refreshes the shared
-lockfile and environment, updates only the generator version in snapshot headers,
-and creates a release commit and an annotated `v<version>` tag. It rejects an
+lockfile and environment, and creates a release commit and an annotated `v<version>`
+tag. It rejects an
 existing tag or uncommitted changes outside the Makefile. Versions must use
 canonical Python spelling, for example `0.2.0rc1`.
 

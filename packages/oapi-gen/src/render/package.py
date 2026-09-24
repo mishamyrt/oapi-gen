@@ -11,7 +11,7 @@ from .writer import Writer, generated_header
 
 def render_init(spec: ApiSpec) -> str:
     writer = Writer()
-    writer.line(generated_header(spec.source_hash))
+    writer.line(generated_header())
     writer.require("typing", "TYPE_CHECKING")
     contract_names = (
         "Handlers, SecurityHandler, SecurityRejected" if used_security_schemes(spec) else "Handlers"

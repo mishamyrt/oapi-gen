@@ -12,7 +12,13 @@ def test_generated_package_matches_snapshot(tmp_path: Path, name: str) -> None:
 
     generate_package(fixtures / f"{name}.openapi.yaml", output)
 
-    expected = {path.name.removesuffix(".txt"): path.read_bytes() for path in snapshots.iterdir()}
-    assert {path.name for path in output.iterdir()} == expected.keys()
+    expected = {
+        str(path.relative_to(snapshots)).removesuffix(".txt"): path.read_bytes()
+        for path in snapshots.rglob("*")
+        if path.is_file()
+    }
+    assert {
+        str(path.relative_to(output)) for path in output.rglob("*") if path.is_file()
+    } == expected.keys()
     for filename, content in expected.items():
         assert (output / filename).read_bytes() == content, filename
