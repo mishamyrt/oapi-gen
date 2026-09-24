@@ -7,7 +7,7 @@ endpoints share the same `Scope.REQUEST` instances.
 
 Use the same version of `oapi-gen-dishka` as the `oapi-gen` generator that produced
 your application code. Both packages are published together; see
-[the release instructions](../../README.md#releases).
+[the release instructions](../../CONTRIBUTING.md#releases).
 
 ```bash
 uv add oapi-gen-dishka
@@ -25,7 +25,7 @@ The example uses the repository's complete Cats specification. Generate it into
 your application's package:
 
 ```bash
-oapi-gen generate packages/oapi-gen/tests/fixtures/cats.openapi.yaml --output app/http/generated
+uv run oapi-gen generate packages/oapi-gen/tests/fixtures/cats.openapi.yaml --output app/http/generated
 ```
 
 ```python
@@ -132,16 +132,7 @@ decorators resolve from the same container after the single setup call above.
   controller: contracts.CatsHandler = CatsController()
   ```
 
-## Development
+## Contributing
 
-```bash
-uv sync --all-packages
-uv run --all-packages --directory packages/oapi-gen-dishka pytest
-uv run --all-packages --directory packages/oapi-gen-dishka ruff check .
-uv run --all-packages --directory packages/oapi-gen-dishka basedpyright
-uv build --package oapi-gen-dishka --out-dir dist
-```
-
-Run these commands from the repository root; the workspace uses one root lockfile.
-The workspace dependency on `oapi-gen` is used only for integration tests;
-the published wheel does not depend on the generator at runtime.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for workspace setup, package checks,
+and releases.
