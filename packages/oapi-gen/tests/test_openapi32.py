@@ -210,7 +210,6 @@ def test_device_authorization_metadata_and_deprecation_preserve_bearer_contract(
     parsed = OpenAPIParser(
         document(paths=paths, components={"securitySchemes": {"device": scheme}})
     ).parse()
-    assert parsed.security_schemes[0].flows == scheme["flows"]
     assert parsed.security_schemes[0].oauth2_metadata_url == scheme["oauth2MetadataUrl"]
     assert parsed.security_schemes[0].deprecated is True
     generated = generate_api(paths, security_schemes={"device": scheme}, openapi_version="3.2.0")

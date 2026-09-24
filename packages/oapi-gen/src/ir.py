@@ -152,7 +152,6 @@ class SecurityScheme:
     description: str | None
     location: ParameterLocation | None
     parameter_name: str | None
-    flows: dict[str, object] | None
     oauth2_metadata_url: str | None = None
     deprecated: bool = False
 

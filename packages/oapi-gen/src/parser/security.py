@@ -43,7 +43,6 @@ def parse_security_schemes(
         description = optional_string(raw.get("description"), f"{context}.description")
         location: ParameterLocation | None = None
         parameter_name: str | None = None
-        flows: dict[str, object] | None = None
         metadata_url = optional_string(raw.get("oauth2MetadataUrl"), f"{context}.oauth2MetadataUrl")
         if metadata_url is not None:
             if raw_type != "oauth2":
@@ -77,7 +76,7 @@ def parse_security_schemes(
             optional_string(raw.get("bearerFormat"), f"{context}.bearerFormat")
         elif raw_type == "oauth2":
             scheme_type = "oauth2"
-            flows = _parse_oauth_flows(raw.get("flows"), context)
+            _parse_oauth_flows(raw.get("flows"), context)
         elif raw_type in {"mutualTLS", "openIdConnect"}:
             raise GenerationError(f"{context}: {raw_type} security is not supported yet")
         else:
@@ -97,7 +96,6 @@ def parse_security_schemes(
                 description=description,
                 location=location,
                 parameter_name=parameter_name,
-                flows=flows,
                 oauth2_metadata_url=metadata_url,
                 deprecated=deprecated,
             )
@@ -110,7 +108,7 @@ def parse_security_schemes(
     return tuple(schemes)
 
 
-def _parse_oauth_flows(value: object, context: str) -> dict[str, object]:
+def _parse_oauth_flows(value: object, context: str) -> None:
     raw_flows = object_value(value, f"{context}.flows")
     if not raw_flows:
         raise GenerationError(f"{context}.flows must contain at least one OAuth2 flow")
@@ -120,26 +118,19 @@ def _parse_oauth_flows(value: object, context: str) -> dict[str, object]:
     if unknown:
         raise GenerationError(f"{context}.flows contains unsupported flows: {unknown!r}")
 
-    flows: dict[str, object] = {}
     for flow_name in _OAUTH_FLOW_REQUIREMENTS:
         if flow_name not in raw_flows:
             continue
         flow_context = f"{context}.flows.{flow_name}"
         raw_flow = object_value(raw_flows[flow_name], flow_context)
-        flow: dict[str, object] = {}
         for field_name in _OAUTH_FLOW_REQUIREMENTS[flow_name]:
-            flow[field_name] = required_string(raw_flow, field_name, flow_context)
-        refresh_url = optional_string(raw_flow.get("refreshUrl"), f"{flow_context}.refreshUrl")
-        if refresh_url is not None:
-            flow["refreshUrl"] = refresh_url
+            required_string(raw_flow, field_name, flow_context)
+        optional_string(raw_flow.get("refreshUrl"), f"{flow_context}.refreshUrl")
         raw_scopes = object_value(raw_flow.get("scopes"), f"{flow_context}.scopes")
         if not all(
             isinstance(name, str) and isinstance(item, str) for name, item in raw_scopes.items()
         ):
             raise GenerationError(f"{flow_context}.scopes must map strings to strings")
-        flow["scopes"] = dict(raw_scopes)
-        flows[flow_name] = flow
-    return flows
 
 
 def parse_security_requirements(
