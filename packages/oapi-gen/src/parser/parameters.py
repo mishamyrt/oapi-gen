@@ -86,7 +86,6 @@ def parse_parameters(
                     raw.get("description"), f"{context}.parameters.{wire_name}.description"
                 ),
                 default=default,
-                has_default=has_default,
                 wire_schema=wire_schema,
             )
         )

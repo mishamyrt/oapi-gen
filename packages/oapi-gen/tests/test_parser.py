@@ -172,7 +172,7 @@ def test_operation_order_and_parameter_overrides(document: dict[str, Any]) -> No
         ("x-limit", "x_limit"),
     ]
     assert parameters[0].required
-    assert parameters[1].has_default and parameters[1].default == 3
+    assert parameters[1].default == 3
     assert spec.operations[1].parameters[1].wire_name == "X-Limit"
     assert spec.groups[0].operations == spec.operations
 

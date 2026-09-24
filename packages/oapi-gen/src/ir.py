@@ -72,7 +72,6 @@ class Parameter:
     required: bool
     description: str | None
     default: object | None
-    has_default: bool
     wire_schema: dict[str, object]
 
 
