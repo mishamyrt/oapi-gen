@@ -87,9 +87,6 @@ def parse_parameters(
                 ),
                 default=default,
                 has_default=has_default,
-                serialization=(
-                    "comma-separated" if is_array and location in {"path", "header"} else "native"
-                ),
                 wire_schema=wire_schema,
             )
         )

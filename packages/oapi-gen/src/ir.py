@@ -73,7 +73,6 @@ class Parameter:
     description: str | None
     default: object | None
     has_default: bool
-    serialization: Literal["native", "comma-separated"]
     wire_schema: dict[str, object]
 
 

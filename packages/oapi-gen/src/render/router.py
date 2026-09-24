@@ -220,7 +220,7 @@ def render_endpoint(w: Writer, op: Operation, checked: bool) -> None:
         getter = "getlist" if array and param.location in {"query", "header"} else "get"
         lookup_name = param.python_name if param.location == "path" else param.wire_name
         value = f"__oapi_http.{source}.{getter}({lookup_name!r})"
-        if param.serialization == "comma-separated":
+        if array and param.location in {"path", "header"}:
             value = f"_runtime_comma_values({value})"
         if raw_type == "boolean":
             value = f"_runtime_boolean({value})"
