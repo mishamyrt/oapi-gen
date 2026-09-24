@@ -51,7 +51,7 @@ def test_response_metadata_accepts_optional_description(generate_api, response):
 @pytest.mark.parametrize("version", ["3.0.4", "3.1.1"])
 def test_old_versions_still_require_response_description(version):
     with pytest.raises(GenerationError, match="description"):
-        OpenAPIParser(document(openapi=version), "hash").parse()
+        OpenAPIParser(document(openapi=version)).parse()
 
 
 @pytest.mark.parametrize("media_type", ["application/json", "multipart/form-data"])
@@ -126,7 +126,7 @@ def test_bad_media_type_references_fail_with_context(reference, media_types, mes
         components={"mediaTypes": media_types},
     )
     with pytest.raises(GenerationError, match=message) as caught:
-        OpenAPIParser(raw, "hash").parse()
+        OpenAPIParser(raw).parse()
     assert "GET /value.responses.200" in str(caught.value)
 
 
@@ -135,7 +135,7 @@ def test_new_unsupported_http_operations_are_not_silently_skipped(keyword):
     raw = document()
     raw["paths"]["/value"][keyword] = {}
     with pytest.raises(GenerationError, match=keyword):
-        OpenAPIParser(raw, "hash").parse()
+        OpenAPIParser(raw).parse()
 
 
 @pytest.mark.parametrize(
@@ -178,7 +178,7 @@ def test_new_unsupported_http_operations_are_not_silently_skipped(keyword):
 )
 def test_unsupported_stream_descriptions_fail_at_generation(media_type, media, message):
     with pytest.raises(GenerationError, match=message):
-        OpenAPIParser(document({"content": {media_type: media}}), "hash").parse()
+        OpenAPIParser(document({"content": {media_type: media}})).parse()
 
 
 def device_scheme():
@@ -208,7 +208,7 @@ def test_device_authorization_metadata_and_deprecation_preserve_bearer_contract(
         }
     }
     parsed = OpenAPIParser(
-        document(paths=paths, components={"securitySchemes": {"device": scheme}}), "hash"
+        document(paths=paths, components={"securitySchemes": {"device": scheme}})
     ).parse()
     assert parsed.security_schemes[0].flows == scheme["flows"]
     assert parsed.security_schemes[0].oauth2_metadata_url == scheme["oauth2MetadataUrl"]
@@ -246,7 +246,7 @@ def test_device_authorization_requires_endpoints_and_scopes(missing):
     scheme = device_scheme()
     del scheme["flows"]["deviceAuthorization"][missing]
     with pytest.raises(GenerationError, match=missing):
-        OpenAPIParser(document(components={"securitySchemes": {"device": scheme}}), "hash").parse()
+        OpenAPIParser(document(components={"securitySchemes": {"device": scheme}})).parse()
 
 
 @pytest.mark.parametrize(
@@ -261,4 +261,4 @@ def test_security_metadata_is_validated(field, value, message):
     scheme = device_scheme()
     scheme[field] = value
     with pytest.raises(GenerationError, match=message):
-        OpenAPIParser(document(components={"securitySchemes": {"device": scheme}}), "hash").parse()
+        OpenAPIParser(document(components={"securitySchemes": {"device": scheme}})).parse()

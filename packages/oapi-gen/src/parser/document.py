@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections import Counter
 from collections.abc import Mapping
@@ -28,7 +27,7 @@ from .values import array_value, object_value, required_string
 _HTTP_METHODS = ("delete", "get", "head", "options", "patch", "post", "put", "trace")
 
 
-def load_document(path: Path) -> tuple[dict[str, Any], str]:
+def load_document(path: Path) -> dict[str, Any]:
     try:
         source = path.read_bytes()
     except OSError as error:
@@ -41,7 +40,7 @@ def load_document(path: Path) -> tuple[dict[str, Any], str]:
 
     if not isinstance(value, dict):
         raise GenerationError("the OpenAPI document root must be an object")
-    return cast(dict[str, Any], value), hashlib.sha256(source).hexdigest()
+    return cast(dict[str, Any], value)
 
 
 def _validate_component_names(document: Mapping[str, Any]) -> None:
@@ -62,9 +61,8 @@ def _validate_component_names(document: Mapping[str, Any]) -> None:
 
 
 class OpenAPIParser:
-    def __init__(self, document: Mapping[str, Any], source_hash: str) -> None:
+    def __init__(self, document: Mapping[str, Any]) -> None:
         self._document = document
-        self._source_hash = source_hash
         self._resolver = Resolver(document)
 
     def parse(self) -> ApiSpec:
@@ -126,7 +124,6 @@ class OpenAPIParser:
         return ApiSpec(
             title=title,
             api_version=api_version,
-            source_hash=self._source_hash,
             operations=tuple(operations),
             groups=groups,
             security_schemes=security_schemes,
@@ -134,5 +131,5 @@ class OpenAPIParser:
 
 
 def parse_openapi(path: Path) -> tuple[ApiSpec, dict[str, Any]]:
-    document, source_hash = load_document(path)
-    return OpenAPIParser(document, source_hash).parse(), document
+    document = load_document(path)
+    return OpenAPIParser(document).parse(), document

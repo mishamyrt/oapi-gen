@@ -22,7 +22,6 @@ _MANIFEST = ".oapi-gen-manifest.json"
 
 @dataclass(frozen=True, slots=True)
 class RenderedPackage:
-    source_hash: str
     files: dict[str, str]
 
 
@@ -72,7 +71,7 @@ def render_package(
     if schemas:
         document["components"] = {**components, "schemas": dict(sorted(schemas.items()))}
     files["openapi.json"] = json.dumps(document, indent=2, ensure_ascii=False) + "\n"
-    return RenderedPackage(source_hash=spec.source_hash, files=files)
+    return RenderedPackage(files=files)
 
 
 def generate_package(

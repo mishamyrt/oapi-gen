@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -56,7 +55,7 @@ def test_operation_namespaces_avoid_contract_and_import_collisions(
         }
         for name in names
     }
-    spec = OpenAPIParser(document, "hash").parse()
+    spec = OpenAPIParser(document).parse()
     assert {operation.operation_id: operation.class_name for operation in spec.operations} == {
         "handlers": "HandlersOperation_2",
         "handlersOperation": "HandlersOperation",
@@ -95,7 +94,7 @@ def test_response_names_cover_standard_and_custom_statuses(document: dict[str, A
             )
         }
     }
-    operation = OpenAPIParser(document, "hash").parse().operations[0]
+    operation = OpenAPIParser(document).parse().operations[0]
     assert {response.status_code: response.class_name for response in operation.responses} == names
 
 
@@ -126,22 +125,19 @@ def test_binary_responses_reject_unsupported_schemas_and_media_types(
         }
     }
     with pytest.raises(GenerationError, match=r"GET /file.*response"):
-        OpenAPIParser(document, "hash").parse()
+        OpenAPIParser(document).parse()
 
 
 @pytest.mark.parametrize("suffix", [".json", ".yaml"])
-def test_document_loading_preserves_source_hash(
-    tmp_path: Path, document: dict[str, Any], suffix: str
-) -> None:
+def test_document_loading(tmp_path: Path, document: dict[str, Any], suffix: str) -> None:
     source = json.dumps(document) if suffix == ".json" else yaml.safe_dump(document)
     path = tmp_path / f"spec{suffix}"
     path.write_text(source, encoding="utf-8")
 
-    loaded, source_hash = load_document(path)
+    loaded = load_document(path)
     spec, parsed_document = parse_openapi(path)
 
     assert loaded == parsed_document == document
-    assert source_hash == spec.source_hash == hashlib.sha256(path.read_bytes()).hexdigest()
     assert (spec.title, spec.api_version, spec.operations) == ("Parser boundaries", "1", ())
 
 
@@ -167,7 +163,7 @@ def test_operation_order_and_parameter_overrides(document: dict[str, Any]) -> No
         },
     }
 
-    spec = OpenAPIParser(document, "hash").parse()
+    spec = OpenAPIParser(document).parse()
 
     assert [item.operation_id for item in spec.operations] == ["getItem", "createItem", "last"]
     parameters = spec.operations[0].parameters
@@ -194,7 +190,7 @@ def test_security_inheritance_overrides_and_declaration_order(document: dict[str
         "/overridden": {"get": _operation("overridden", security=[{"a": ["write"]}])},
     }
 
-    spec = OpenAPIParser(document, "hash").parse()
+    spec = OpenAPIParser(document).parse()
     operations = {item.operation_id: item for item in spec.operations}
 
     assert [scheme.wire_name for scheme in spec.security_schemes] == ["a", "z"]
@@ -248,7 +244,7 @@ def test_recursive_models_and_referenced_scalar_constraints(document: dict[str, 
         }
     }
 
-    operation = OpenAPIParser(document, "hash").parse().operations[0]
+    operation = OpenAPIParser(document).parse().operations[0]
 
     assert dict(operation.parameters[0].type_ref.constraints) == {"ge": 4, "le": 9}
     response_type = operation.responses[0].type_ref
@@ -269,7 +265,7 @@ def test_component_errors_precede_operation_errors(document: dict[str, Any]) -> 
     document["paths"] = {"/items": {"get": {}}}
 
     with pytest.raises(GenerationError) as caught:
-        OpenAPIParser(document, "hash").parse()
+        OpenAPIParser(document).parse()
 
     assert str(caught.value) == (
         "components.schemas.Unused.properties.child: external $ref values are not supported: "
@@ -289,7 +285,7 @@ def test_cyclic_reference_aliases_keep_error_context(document: dict[str, Any]) -
     }
 
     with pytest.raises(GenerationError) as caught:
-        OpenAPIParser(document, "hash").parse()
+        OpenAPIParser(document).parse()
 
     assert str(caught.value) == (
         "GET /items.requestBody: cyclic $ref alias '#/components/requestBodies/A'"

@@ -214,7 +214,6 @@ class HandlerGroup:
 class ApiSpec:
     title: str
     api_version: str
-    source_hash: str
     operations: tuple[Operation, ...]
     groups: tuple[HandlerGroup, ...]
     security_schemes: tuple[SecurityScheme, ...]
