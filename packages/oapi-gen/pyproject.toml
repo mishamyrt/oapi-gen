@@ -9,11 +9,11 @@ description = "Strict OpenAPI-first server contract generator for Starlette and 
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "black==26.5.1",
-  "datamodel-code-generator==0.76.2",
+  "black==26.10.1",
+  "datamodel-code-generator==0.102.0",
   "isort==8.0.1",
-  "msgspec==0.21.1",
-  "starlette==1.6.0",
+  "msgspec==0.22.0",
+  "starlette==1.10.0",
   "PyYAML==6.0.3",
 ]
 
@@ -22,12 +22,12 @@ oapi-gen = "oapi_gen.main:main"
 
 [dependency-groups]
 dev = [
-  "basedpyright==1.39.10",
-  "httpx==0.28.1",
-  "pytest==9.1.1",
-  "python-multipart==0.0.32",
-  "ruff==0.16.6",
-  "uvicorn[standard]==0.52.4",
+  "basedpyright==1.40.2",
+  "httpx2==2.16.2",
+  "pytest==9.2.0",
+  "python-multipart==0.0.34",
+  "ruff==0.17.6",
+  "uvicorn[standard]==0.54.0",
 ]
 
 [tool.setuptools.package-dir]

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
-import httpx
+import httpx2
 import pytest
 from dishka import (
     FromComponent,
@@ -191,8 +191,8 @@ def test_parallel_http_requests_are_isolated(generated):
     async def scenario():
         app, container, provider, _ = build_app(generated)
         try:
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app),
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app),
                 base_url="http://test",
             ) as client:
                 responses = await asyncio.gather(
@@ -226,8 +226,8 @@ def test_failures_finalize_dependencies_and_reset_context(generated):
     async def scenario():
         app, container, provider, _ = build_app(generated)
         try:
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app),
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app),
                 base_url="http://test",
             ) as client:
                 with pytest.raises(ValueError, match="handler failed"):
@@ -256,8 +256,8 @@ def test_cancellation_finalizes_request_resources(generated):
         started = asyncio.Event()
         app, container, provider, _ = build_app(generated, started)
         try:
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app),
+            async with httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app),
                 base_url="http://test",
             ) as client:
                 task = asyncio.create_task(

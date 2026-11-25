@@ -4,7 +4,7 @@ import json
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-import httpx
+import httpx2
 import pytest
 from dishka import FromDishka, Provider, Scope, make_async_container, provide
 from dishka.integrations.starlette import StarletteProvider
@@ -110,8 +110,8 @@ def test_starlette_scopes_are_shared_isolated_and_closed(tmp_path: Path, monkeyp
         app = Starlette(routes=router.routes)
         setup_dishka(container, app)
         try:
-            transport = httpx.ASGITransport(app)
-            async with httpx.AsyncClient(
+            transport = httpx2.ASGITransport(app)
+            async with httpx2.AsyncClient(
                 transport=transport,
                 base_url="http://test",
             ) as client:
